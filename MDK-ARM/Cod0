@@ -1,0 +1,129 @@
+//        float t0,u0,t1,u1,t2,t3;
+//        t0 = (float)pvT[0]/10;
+//        u0 = (float)eep.sp.spT[0]/10;
+//        t1 = (float)pvT[1]/10;
+//        u1 = (float)eep.sp.spT[1]/10;
+//        t2 = (float)pvT[2]/10;
+//        t3=99.9;
+//sprintf((char*)TXBuffer,"id=%02i;t0=%2.1f;u0=%2.1f;t1=%2.1f;u1=%2.1f;t2=%2.1f;t3=%2.1f;tm=%3i;tu=%3i;ct=%3i;fl=%3i;fu=%3i;co=%4i\r\n",eep.sp.identif,t0,u0,t1,u1,t2,t3,pvTimer,eep.sp.timer[0],countsec,pvFlap,20,pvCO2[0]);
+
+//------------------- ANDROID -------------------------------
+                            //-- id -- %2i --
+                            int fromIndex = 0;
+                            String val;
+                            int start = message.indexOf("id=", fromIndex) + 3;
+                            int end = start + 2;    // %2i
+                            fromIndex = end + 1;
+                            char[] buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvCell.setText(getString(R.string.CellNum, val));
+                            //-- t0 -- %.1f --
+                            start = message.indexOf("t0=", fromIndex) + 3;
+                            end = start + 4;    // %.1f
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvDry0Val.setText(val);
+                            //-- u0 -- %.1f --
+                            start = message.indexOf("u0=", fromIndex) + 3;
+                            end = start + 4;    // %.1f
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvDry0U.setText("["+val+"]");
+                            //-- t1 -- %.1f --
+                            start = message.indexOf("t1=", fromIndex) + 3;
+                            end = start + 4;    // %.1f
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvHumVal.setText(val);
+                            //-- u1 -- %.1f --
+                            start = message.indexOf("u1=", fromIndex) + 3;
+                            end = start + 4;    // %.1f
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvHumU.setText("["+val+"]");
+                            //-- t2 -- %.1f --
+                            start = message.indexOf("t2=", fromIndex) + 3;
+                            end = start + 4;    // %.1f
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            int g;
+                            if (!val.equals("")){
+                                char myChar = val.charAt(0);
+                                g = Integer.parseInt(String.valueOf(myChar));
+                            }
+                            else g = 10;
+                            if (g>8) tvDry1Val.setVisibility(View.INVISIBLE);
+                            else tvDry1Val.setText(val);
+                            //-- t3 -- %.1f --
+                            start = message.indexOf("t3=", fromIndex) + 3;
+                            end = start + 4;    // %.1f
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            if (!val.equals("")){
+                                char myChar = val.charAt(0);
+                                g = Integer.parseInt(String.valueOf(myChar));
+                            }
+                            else g = 10;
+                            if (g>8) tvDry2Val.setVisibility(View.INVISIBLE);
+                            else tvDry1Val.setText(val);
+                            //-- tm -- %3i --
+                            start = message.indexOf("tm=", fromIndex) + 3;
+                            end = start + 3;    // %3i
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvTimerVal.setText(val);
+                            //-- tu -- %3i --
+                            start = message.indexOf("tu=", fromIndex) + 3;
+                            end = start + 3;    // %3i
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvTimerU.setText("["+val+"]");
+                            //-- ct -- %3i --
+                            start = message.indexOf("ct=", fromIndex) + 3;
+                            end = start + 3;    // %3i
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvCountVal.setText(val);
+                            //-- fl -- %3i --
+                            start = message.indexOf("fl=", fromIndex) + 3;
+                            end = start + 3;    // %3i
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvFlapVal.setText(val+"%");
+                            //-- fu -- %3i --
+                            start = message.indexOf("fu=", fromIndex) + 3;
+                            end = start + 3;    // %3i
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvFlapU.setText("["+val+"%]");
+                            //-- co -- %4i --
+                            start = message.indexOf("co=", fromIndex) + 3;
+                            end = start + 4;    // %4i
+                            fromIndex = end + 1;
+                            buf = new char[end - start];
+                            message.getChars(start, end, buf, 0);
+                            val = new String(buf);
+                            tvCoTwoVal.setText(val);
