@@ -88,7 +88,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 #define VERSION            1       // версия ПО
 #define EEPROM_I2C_PORT hi2c1
-#define EEP_DATA      50      // ВСЕГО 50 bytes
+#define EEP_DATA           50      // ВСЕГО 50 bytes
 #define MAX_DEVICES   4       // максимальное количество микросхем DS18b20 подключенных 1 Wire шине
 #define WAITCOUNT     16      // максимальная пауза перед реакцией на кнопку
 #define MAXOWNER 	    12      // максимальная количество меню для пользователя
