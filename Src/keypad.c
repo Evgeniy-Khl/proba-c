@@ -1,11 +1,3 @@
-//      for (uint8_t i=0;i<4;i++){
-//        xx =  keyBuffer[i]; 
-//        xx <<= i; 
-//        keykod |= xx;
-//        if (keyBuffer[i]==0x01) LedInverse(i);
-//        else if (keyBuffer[i]==0x10) LedInverse(i+4);
-//        SendDataTM1638();
-
 #include "main.h"
 #include "global.h"   // здесь определена структура eeprom и структура rampv
 #include "keypad.h"
@@ -14,6 +6,22 @@ extern int8_t countsec, getButton, displmode;
 extern uint8_t ok0, ok1, changeDispl, keyBuffer[], keynum, setup, Hih, waitset, waitkey, topOwner, topUser, botUser, modules, servis, beepOn, disableBeep, psword, Check, EEPsave;
 extern int16_t buf, alarmErr;
 
+void pushkey(void){
+ uint8_t xx, keykod;
+  getButton = 0;
+  HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+  ReadKeyTM1638();
+  keykod=0;
+  for (uint8_t i=0;i<4;i++){
+  xx =  keyBuffer[i]; 
+  xx <<= i; 
+  keykod |= xx;
+  if (keyBuffer[i]==0x01) LedInverse(i);
+  else if (keyBuffer[i]==0x10) LedInverse(i+4);
+  }
+  SendDataTM1638();  
+}
+/*
 void checkkey(struct eeprom *t, int16_t pvT0){
   uint8_t xx, keykod;
 //HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin); 
@@ -255,3 +263,4 @@ void checkkey(struct eeprom *t, int16_t pvT0){
 //-----------------------------------------------------------------------------------------------------------------------------------------------------
   }
 }
+*/

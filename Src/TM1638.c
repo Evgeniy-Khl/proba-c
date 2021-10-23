@@ -3,13 +3,13 @@
 
 extern uint8_t DisplBuffer[], keyBuffer[];
 extern uint8_t changeDispl;
-extern SPI_HandleTypeDef hspi1;
+extern SPI_HandleTypeDef hspi2;
 extern uint8_t digit[];
 
 void SendCmdTM1638(uint8_t cmd){
 	STB_L();
 	DisplBuffer[0] = cmd;       // Set command
-	HAL_SPI_Transmit(&hspi1,(uint8_t*)DisplBuffer, 1, 5000);
+	HAL_SPI_Transmit(&hspi2,(uint8_t*)DisplBuffer, 1, 5000);
 	STB_H();
 }
 
@@ -18,16 +18,16 @@ void SendDataTM1638(void){
 	SendCmdTM1638(0x40);          // Set command for writing data into display memory, in the mode of auto address increment by (40H)
 	STB_L();
 	DisplBuffer[0] = 0x0C0;       // Set starting address (0C0H)
-	HAL_SPI_Transmit(&hspi1,(uint8_t*)DisplBuffer, 17, 5000);
+	HAL_SPI_Transmit(&hspi2,(uint8_t*)DisplBuffer, 17, 5000);
 	STB_H();
 }
 
 void ReadKeyTM1638(void){
 	STB_L();  
 	keyBuffer[0] = 0x42; 			    // Set data commend for key reading (42H)
-	HAL_SPI_Transmit(&hspi1,(uint8_t*)keyBuffer, 1, 5000);
+	HAL_SPI_Transmit(&hspi2,(uint8_t*)keyBuffer, 1, 5000);
 
-	HAL_SPI_Receive(&hspi1,(uint8_t*)keyBuffer, 4, 5000);
+	HAL_SPI_Receive(&hspi2,(uint8_t*)keyBuffer, 4, 5000);
 	STB_H();
 }
 

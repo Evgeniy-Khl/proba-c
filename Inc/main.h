@@ -67,12 +67,12 @@ void Error_Handler(void);
 #define LED2_GPIO_Port GPIOC
 #define KEY_S2_Pin GPIO_PIN_0
 #define KEY_S2_GPIO_Port GPIOA
-#define DISPL_STB_Pin GPIO_PIN_6
-#define DISPL_STB_GPIO_Port GPIOA
 #define SSD_SCL_Pin GPIO_PIN_10
 #define SSD_SCL_GPIO_Port GPIOB
 #define SSD_SDA_Pin GPIO_PIN_11
 #define SSD_SDA_GPIO_Port GPIOB
+#define DISPL_STB_Pin GPIO_PIN_14
+#define DISPL_STB_GPIO_Port GPIOB
 #define Blutooth_TX_Pin GPIO_PIN_9
 #define Blutooth_TX_GPIO_Port GPIOA
 #define Blutooth_RX_Pin GPIO_PIN_10

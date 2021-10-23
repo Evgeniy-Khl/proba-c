@@ -1,18 +1,28 @@
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __GLOBAL_H
 #define __GLOBAL_H
+extern struct {
+  uint8_t RXBuffer[2];
+  uint8_t TXBuffer[2];
+  uint8_t buf[60];
+  uint8_t ind;
+  uint8_t timeOut;
+  uint8_t devOk;
+} bluetoothData;
 
 extern struct rampv {
-    uint8_t cellID;               // 1 байт сетевой номер прибора
-    int16_t pvT[MAX_DEVICES];     // 8 байт значения [MAX_DEVICES] датчиков температуры
-    int16_t pvRH;                 // 2 байта значение датчика относительной влажности
-    int16_t pvCO2[3];             // 6 байт значения датчика CO2    ИТОГО 17 bytes       
-    uint8_t pvTimer;              // 1 байт значение таймера
-    uint8_t pvFlap;               // 1 байт положение заслонки 
-    uint8_t power, fuses;         // 2 байта мощьность подаваемая на тены и короткие замыкания
-    uint8_t errors, warning;      // 2 байта ошибки и предупреждения
-    uint8_t cost0, cost1;         // 2 байта затраты ресурсов
-    uint8_t date, hours;          // 2 байта счетчики суток и часов
+    uint16_t cellID;              // 2 байт ind=0         сетевой номер прибора
+    int16_t pvT[MAX_DEVICES];     // 8 байт ind=2-ind=9   значения [MAX_DEVICES] датчиков температуры
+    int16_t pvRH;                 // 2 байт ind=10;ind=11 значение датчика относительной влажности
+    int16_t pvCO2[3];             // 6 байт ind=12-ind=17 значения датчика CO2 ---------- ИТОГО 18 bytes ------------
+    uint8_t pvTimer;              // 1 байт ind=18        значение таймера
+    uint8_t pvTmrCount;           // 1 байт ind=19        значение счетчика проходов поворота
+    uint8_t pvFlap;               // 1 байт ind=20        положение заслонки 
+    uint8_t power, fuses;         // 2 байт ind=21;ind=22 мощьность подаваемая на тены и короткие замыкания
+    uint8_t errors, warning;      // 2 байт ind=23;ind=24 ошибки и предупреждения
+    uint8_t cost0, cost1;         // 2 байт ind=25;ind=26 затраты ресурсов
+    uint8_t date, hours;          // 2 байт ind=27;ind=28 счетчики суток и часов
+    uint8_t other0;               // 1 байт ind=29        положение заслонки
   } pv;// ------------------ ИТОГО 27 bytes -------------------------------
 
 extern struct eeprom {

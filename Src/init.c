@@ -70,8 +70,8 @@ void init1(struct eeprom *t, struct rampv *ram){
   ram->pvT[1]=999;
   ram->pvT[2]=999;
   ram->pvT[3]=999;
-  ram->date  = 31;
-  ram->hours = 24;
+  ram->date  = 1;
+  ram->hours = 23;
   ram->fuses =0xFF;
   ram->cellID  = t->identif;
   ram->pvTimer = t->timer[0];

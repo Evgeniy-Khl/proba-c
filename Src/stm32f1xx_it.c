@@ -23,6 +23,7 @@
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "global.h"   // здесь определена структура eeprom и структура rampv
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -63,7 +64,6 @@ extern TIM_HandleTypeDef htim4;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 extern uint8_t power, getButton, Check, waitset, displmode, psword, servis, setup; 
-extern int16_t buf;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -187,7 +187,16 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-
+  if( bluetoothData.ind == 0 )  bluetoothData.timeOut=0; 
+  else {
+    if( ++bluetoothData.timeOut >= 10 ) {
+        // ошибка таймаута
+        HAL_UART_AbortReceive_IT(&huart1); // остановка приема
+        bluetoothData.ind = 0; // признак ожидание первого байта
+        bluetoothData.timeOut = 0;
+        HAL_UART_Receive_IT(&huart1,(uint8_t*)bluetoothData.RXBuffer,2); // запуск приема
+    }
+  }
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
@@ -238,7 +247,7 @@ void TIM2_IRQHandler(void)
 void TIM3_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM3_IRQn 0 */
-  /* ------  таймер TIM3 с периодом 166 мс.  ----*/
+  /* ------  таймер TIM3 с периодом 100 мс.  ----*/
   /* USER CODE END TIM3_IRQn 0 */
   HAL_TIM_IRQHandler(&htim3);
   /* USER CODE BEGIN TIM3_IRQn 1 */
