@@ -77,6 +77,12 @@ void Error_Handler(void);
 #define Blutooth_TX_GPIO_Port GPIOA
 #define Blutooth_RX_Pin GPIO_PIN_10
 #define Blutooth_RX_GPIO_Port GPIOA
+#define AM2301_Pin GPIO_PIN_12
+#define AM2301_GPIO_Port GPIOA
+#define Beeper_Pin GPIO_PIN_15
+#define Beeper_GPIO_Port GPIOA
+#define Door_Pin GPIO_PIN_3
+#define Door_GPIO_Port GPIOB
 #define mem_SCL_Pin GPIO_PIN_6
 #define mem_SCL_GPIO_Port GPIOB
 #define mem_SDA_Pin GPIO_PIN_7
@@ -86,9 +92,9 @@ void Error_Handler(void);
 #define OneWR_Pin GPIO_PIN_9
 #define OneWR_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
-#define VERSION            1       // версия ПО
+#define VERSION       1       // версия ПО
 #define EEPROM_I2C_PORT hi2c1
-#define EEP_DATA           50      // ВСЕГО 50 bytes
+#define EEP_DATA      50      // ВСЕГО 50 bytes
 #define MAX_DEVICES   4       // максимальное количество микросхем DS18b20 подключенных 1 Wire шине
 #define WAITCOUNT     16      // максимальная пауза перед реакцией на кнопку
 #define MAXOWNER 	    12      // максимальная количество меню для пользователя

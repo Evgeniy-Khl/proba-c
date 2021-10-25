@@ -6,7 +6,7 @@
 
 extern const float A4, A5, A6;
 extern int8_t countsec;
-extern uint8_t portOut, ok0, ok1, devices, familycode[], outbuffer[], ext[], Hih, cmdmodule, pvVCool;
+extern uint8_t portOut, ok0, ok1, devices, familycode[], outbuffer[], ext[], Hih, cmdmodule;
 extern uint8_t Carbon, Aeration, pvAeration, beepOn, modules, Superheat, Alarm, disableBeep;
 extern int16_t alarmErr;
 extern float stold[2][2];
@@ -84,29 +84,6 @@ void chkdoor(struct eeprom *t, struct rampv *ram){
      else if((t->state&7)==1) beepOn = DURATION*2;//-- если камера ВКЛ. то вкл. тревогу.
      else if(t->state&4) {if(++counter>t->TimeOut) {beepOn = DURATION; ram->warning |=0x20;}}//-- если превышено ожидание то вкл. тревогу.(Режим "подгототка к ВКЛЮЧЕНИЮ")
    }
-}
-
-/*************************************************************
-T=20,0грд.С
-I=3.9A   V=102
-I=5,9A   V=110 при V=115 симистор закрывается.
-I=9,7A   V>120 при V=117 симистор уже не закрывается.
-*************************************************************/
-
-uint8_t fan_adc(uint16_t val, uint8_t coolOn, uint8_t coolOff){
-  val >>=2;
-  if (Superheat){if (val < 108) {COOLER_ON(portOut); Superheat=0;}}
-  else if (val > 110) {COOLER_ON(portOut); Superheat=1;}          // val > 100->80 грд.С.
-  else if (val > coolOn) COOLER_ON(portOut);
-  else if (val < coolOff) COOLER_OFF(portOut);
-  if (!DOOR) {COOLER_ON(portOut); pvVCool=100;}                  // Дверь ОТкрыта  предотвращаем срабатывание на "Нет обдува симистора!"
-  return val;
-}
-
-void fan_power(uint8_t coolOn, uint8_t coolOff, uint8_t power){
-  if (power > coolOn) COOLER_ON(portOut);
-  else if (power < coolOff) COOLER_OFF(portOut);
-  if (!DOOR) {COOLER_ON(portOut); pvVCool=100;}                  // Дверь ОТкрыта  предотвращаем срабатывание на "Нет обдува симистора!"
 }
 
 void alarm(struct eeprom *t, struct rampv *ram){

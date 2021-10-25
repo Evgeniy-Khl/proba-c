@@ -64,10 +64,10 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 const float A4=1.8, A5=0.81, A6=0.01;  // порядок a=0.9 (A1=2a; A2=a^2; A3=(1-a)^2)
 const float A1=1.6, A2=0.64, A3=0.04;  // порядок a=0.8 (A1=2a; A2=a^2; A3=(1-a)^2)
-volatile uint16_t adc[3] = {0,};       // у нас три канала АЦП, поэтому массив из трех элементов
+volatile uint16_t adc[2] = {0,0};      // у нас два канала АЦП, поэтому массив из двух элементов
 volatile uint8_t flag = 0;             // флаг окончания преобразования АЦП
 int8_t getButton=0;
-uint8_t changeDispl=0, x=0, y=0, power=0, show=5, Hih=0, Alarm=0, Aeration, Carbon, Check=1, Thermistor, Superheat, EEPsave=0, keynum=0;
+uint8_t changeDispl=0, x=0, y=0, power=0, show=5, Hih=0, Alarm=0, Aeration, Carbon, Check=1, Superheat, EEPsave=0, keynum=0;
 uint8_t DisplBuffer[17]={0}, keyBuffer[4]={0};
 extern struct {
   uint8_t RXBuffer[2];
@@ -120,11 +120,11 @@ char SSDBuffer[20];
 // -------- ISIDA ------
 int8_t countsec=0, displmode, sizeX;
 uint8_t pwTriac0, pwTriac1, portOut, valRun, valLoad, Superheat, setup, psword, servis, keydata, waitset, waitkey=WAITCOUNT;
-uint8_t countmin, countcooler, pvVCool, pvThermistor, cmdmodule, modules=0;
+uint8_t countmin, cmdmodule, modules=0;
 uint8_t outLed, beepOn, disableBeep, pvAeration, topOwner=MAXOWNER, topUser=TOPUSER, botUser=BOTUSER;
 int8_t ds18b20_amount, ext[4];
 uint8_t ok0, ok1, familycode[MAX_DEVICES][9], outbuffer[4], inbuffer[4];
-int16_t alarmErr, buf, current, currAdc, thermistorAdc, RHadc; 
+int16_t alarmErr, buf, current, currAdc, RHadc; 
 int16_t kWattHore, statPw[2];  // (?? байт)
 uint32_t summCurr=0;
 float PVold1=80, PVold2, iPart[3], stold[2][2];
@@ -132,7 +132,7 @@ float PVold1=80, PVold2, iPart[3], stold[2][2];
 union pointvalue{
   uint8_t pvdata[30];
   struct rampv {
-    uint16_t cellID;              // 2 байт ind=0         сетевой номер прибора
+   uint16_t cellID;               // 2 байт ind=0         сетевой номер и тип прибора
     int16_t pvT[MAX_DEVICES];     // 8 байт ind=2-ind=9   значения [MAX_DEVICES] датчиков температуры
     int16_t pvRH;                 // 2 байт ind=10;ind=11 значение датчика относительной влажности
     int16_t pvCO2[3];             // 6 байт ind=12-ind=17 значения датчика CO2 ---------- ИТОГО 18 bytes ------------
@@ -212,7 +212,7 @@ void extra_1(struct eeprom *t);
 void extra_2(struct eeprom *t);
 void chkdoor(struct eeprom *t, struct rampv *ram);
 void alarm(struct eeprom *t, int16_t pvT0);
-void init0(uint8_t KoffCurr);
+void init(struct eeprom *t, struct rampv *ram);
 void init1(struct eeprom *t, struct rampv *ram);
 void leddisplay(uint8_t state);
 /* USER CODE END PV */
@@ -292,12 +292,11 @@ int main(void)
   cnt1=0;
   while(flag==0);
   flag = 0;
-  currAdc = adc[0]; thermistorAdc = adc[1]; RHadc = adc[2]*VREF_mlV/4095;
-  adc[0] = 0; adc[1] = 0; adc[2] = 0;
+  currAdc = adc[0]; RHadc = adc[1]*VREF_mlV/4095;
+  adc[0] = 0; adc[1] = 0;
 
   for(int8_t i=0;i<8;i++) {setChar(i,SIMBL_BL); PointOn(i);}// BL+точки
 //  setChar(0,currAdc/1000); setChar(1,currAdc/100); setChar(2,currAdc/10); setChar(3,currAdc%10);
-//  setChar(4,thermistorAdc/1000); setChar(5,thermistorAdc/100); setChar(6,thermistorAdc/10); setChar(7,thermistorAdc%10);
   SendDataTM1638();
 	SendCmdTM1638(0x8F);       // Transmit the display control command to set maximum brightness (8FH)
 //  dsplMss(eep.data);
@@ -305,7 +304,7 @@ int main(void)
   eep_read(0x0000, eep.data);
   if (eep.sp.identif == 0 || eep.sp.identif > 30) eep_initial(0x0000, eep.data);
   bluetoothName();
-  init0(eep.sp.KoffCurr);   // инициализация 0
+  init(&eep.sp, &upv.pv);   // инициализация 0
   init1(&eep.sp, &upv.pv);  // инициализация 1
   temperature_check(&upv.pv);
   /* USER CODE END 2 */
@@ -328,22 +327,15 @@ int main(void)
         while(flag==0);
         flag = 0;
         currAdc = adc[0];         // Channel 2  currAdc
-        thermistorAdc = adc[1];   // Channel 3  thermistorAdc
-        RHadc = adc[2]*VREF_mlV/4095;        // Channel 4  RHadc
-        adc[0] = 0; adc[1] = 0; adc[2] = 0;
+        RHadc = adc[1]*VREF_mlV/4095;        // Channel 4  RHadc
+        adc[0] = 0; adc[1] = 0;
 // ----------- ************************************** --------------------------------------------------
         temperature_check(&upv.pv);
-//        upv.pv.pvT[0]=300; upv.pv.pvT[1]=400; upv.pv.pvT[1]=500; upv.pv.pvT[1]=600;
-//        upv.pv.pvTimer = 55; upv.pv.pvFlap = 20;
-//        upv.pv.power = 21; upv.pv.fuses = 22;
-//        upv.pv.errors = 23; upv.pv.warning = 24;
-//        upv.pv.cost0 = 25; upv.pv.cost1 = 26; upv.pv.other0 = 5;
+
         HAL_UART_Transmit(&huart1,(uint8_t*)upv.pvdata,30,0x1000);
         HAL_UART_Transmit(&huart1,(uint8_t*)eep.data,50,0x1000);
         HAL_UART_Transmit(&huart1,(uint8_t*)bluetoothData.TXBuffer,2,0x1000);
 // ----------- ************************************** --------------------------------------------------
-        if(Thermistor) pvThermistor = fan_adc(thermistorAdc, eep.sp.coolOn, eep.sp.coolOff);// температура силового элемента (включение вентилятора)
-        else fan_power(80, 60, upv.pv.power);
         if(Hih){ 
            if(RHadc > 400){                             // RHadc => 500 mV для RH=0%
               upv.pv.pvRH = ValDcToRH(RHadc, eep.sp.spRH[0], upv.pv.pvT[0]);  // перевод в десятичное значение относительной влажности (%)
@@ -872,6 +864,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(DISPL_STB_GPIO_Port, DISPL_STB_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Beeper_GPIO_Port, Beeper_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : LED2_Pin */
   GPIO_InitStruct.Pin = LED2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -879,11 +874,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(LED2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : KEY_S2_Pin */
-  GPIO_InitStruct.Pin = KEY_S2_Pin;
+  /*Configure GPIO pins : KEY_S2_Pin AM2301_Pin */
+  GPIO_InitStruct.Pin = KEY_S2_Pin|AM2301_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(KEY_S2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : DISPL_STB_Pin */
   GPIO_InitStruct.Pin = DISPL_STB_Pin;
@@ -892,8 +887,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(DISPL_STB_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : OneWr2_Pin OneWR_Pin */
-  GPIO_InitStruct.Pin = OneWr2_Pin|OneWR_Pin;
+  /*Configure GPIO pin : Beeper_Pin */
+  GPIO_InitStruct.Pin = Beeper_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Beeper_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : Door_Pin OneWr2_Pin OneWR_Pin */
+  GPIO_InitStruct.Pin = Door_Pin|OneWr2_Pin|OneWR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);

@@ -19,7 +19,7 @@ uint8_t ds18b20_ReadBit(void);
 uint8_t ds18b20_ReadByte(void);
 void ds18b20_WriteBit(uint8_t bit);
 void ds18b20_WriteByte(uint8_t dt);
-uint8_t ds18b20_count(uint8_t amount);
+void ds18b20_count(uint8_t amount);
 void ds18b20_Convert_T(void);
 //void ds18b20_ReadStratcpad(uint16_t y_pos, uint8_t DevNum);
 void ds18b20_WriteScratchpad(uint8_t DevNum, uint8_t th, int8_t tl);

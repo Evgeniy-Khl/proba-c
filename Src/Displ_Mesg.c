@@ -2,7 +2,6 @@
 #include "global.h"   // здесь определена структура eeprom и структура rampv
 extern char SSDBuffer[];
 extern uint8_t show, ok0, ok1, changeDispl, setup, Hih, waitset, waitkey, servis, displmode, modules, disableBeep, psword, keynum, keyBuffer[];
-extern uint8_t pvThermistor;
 extern int16_t buf, alarmErr, buf, current, currAdc, thermistorAdc, RHadc;
 extern uint32_t cnt1;
 
@@ -113,11 +112,6 @@ void dsplMss(uint8_t *data, struct rampv *ram){
           SSD1306_UpdateScreen();
           y+=10;
           sprintf(SSDBuffer,"Cur=%3i  A2=%4i",current,currAdc);
-          SSD1306_GotoXY(0,y);
-          SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
-          SSD1306_UpdateScreen();
-          y+=10;
-          sprintf(SSDBuffer,"Tmp=%3i  A3=%4i",pvThermistor,thermistorAdc); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();

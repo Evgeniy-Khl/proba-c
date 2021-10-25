@@ -3,7 +3,7 @@
 #include "displ.h"
 
 extern int8_t displmode, countsec;
-extern uint8_t ok0, ok1, psword, show, keynum, setup, servis, Hih, digit[], pvThermistor, Alarm, Aeration, Carbon, Superheat, portOut;
+extern uint8_t ok0, ok1, psword, show, keynum, setup, servis, Hih, digit[], Alarm, Aeration, Carbon, Superheat, portOut;
 extern int16_t kWattHore, buf, current;
 //------- Светодиодная индикация --------------------------------------------------------- 
 void leddisplay(uint8_t state, uint8_t fuses){
@@ -129,7 +129,7 @@ void displ_3(int16_t val, int8_t mode, int8_t errors, int8_t warning){
 		case SERVIS:  chr=SIMBL_c;    break;  // c
 		case CONTROL: chr=SIMBL_P;    break;  // P
 		case PASS:    chr=SIMBL_TOPn; break;  // TOPn
-    case VERS:    chr=SIMBL_n;    break;  // n
+    case VERS:    chr=SIMBL_TOPu; break;  // TOPu
     case MODUL:   chr=SIMBL_o;    break;  // o
 		case DISPL:   chr=SIMBL_d;    break;  // d
 		default:      chr=SIMBL_BL;
@@ -140,13 +140,13 @@ void displ_3(int16_t val, int8_t mode, int8_t errors, int8_t warning){
 			setChar(6, SIMBL_Pe); // П
 			setChar(7, SIMBL_A);  // A     
 		}
-		else if (val==0 && chr==SIMBL_BL){
+		else if (val==0){
 			setChar(6, chr);
 			setChar(7, SIMBL_BL);
 		}
 		else if (val<10){
 			setChar(6, chr);
-			setChar(7, val%10);
+			setChar(7, val);
 		}
 		else {
 			setChar(6, val/10); 
@@ -233,7 +233,7 @@ void display_setup(struct eeprom *t){
 
 void display_servis(struct rampv *ram){
 	switch (servis){
-		case 1: displ_1(current,COMMA); displ_2(pvThermistor,NOCOMMA); break;     // C1 -> НАГРЕВ; Сила тока
+		case 1: displ_1(current,COMMA); clr_2(); break;     // C1 -> НАГРЕВ; Сила тока
 		case 2: displ_1(ram->pvRH,NOCOMMA); /*displ_2(read_adc(3),NOCOMMA);*/ break;   // C2 -> ВЛАЖНОСТЬ; значение АЦП
 		case 3: displ_1(ram->pvCO2[0],NOCOMMA); displ_2(ram->pvFlap,NOCOMMA); break;      // C3 -> ЗАСЛОНКА; СО2, СЕРВОПРИВОД град.
 		case 8: displ_1(buf,COMMA); clr_2(); break;                           // C8 -> Уставка форсированного нагрева

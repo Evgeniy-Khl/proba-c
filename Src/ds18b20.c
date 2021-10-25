@@ -133,7 +133,7 @@ void ds18b20_WriteByte(uint8_t dt){
   }
 }
 //-----------------------------------------------
-uint8_t ds18b20_count(uint8_t amount){
+void ds18b20_count(uint8_t amount){
   uint8_t i, dt[8];
   ds18b20_amount = 0;
   for(i = 0; i < amount; i++){
@@ -143,7 +143,6 @@ uint8_t ds18b20_count(uint8_t amount){
     }
     else break;
   }
-  return 0;
 }
 //-----------------------------------------------
 void ds18b20_Convert_T(void){
@@ -265,7 +264,7 @@ void temperature_check(struct rampv *ram){
    }
   ds18b20_Convert_T();
 }
-
+// ----- датчик скорлупы €иц --------------------------
 void checkSensor(void){
  uint8_t item, byte, crc, try_cnt=0, tempbuffer[9];
  union ds {uint8_t data[8]; int16_t val;} buffer;
