@@ -3,12 +3,12 @@
 #include "displ.h"
 
 extern int8_t displmode, countsec;
-extern uint8_t ok0, ok1, psword, show, keynum, setup, servis, Hih, digit[], Alarm, Aeration, Carbon, Superheat, portOut;
-extern int16_t kWattHore, buf, current;
+extern uint8_t ok0, ok1, psword, setup, servis;
+extern int16_t buf, current;
 //------- Светодиодная индикация --------------------------------------------------------- 
 void leddisplay(uint8_t state, uint8_t fuses){
  uint8_t led, i;
-  led = portOut & 0x0F;               // 0b00001111
+  led = portOut.value & 0x0F;               // 0b00001111
   for(i=0;i<8;i++) LedOff(i);
   i=0;
   do
@@ -22,7 +22,7 @@ void leddisplay(uint8_t state, uint8_t fuses){
   if(!(fuses&0x01)) LedOn(5);         // останов вентилятора
 //  if(!(fuses&0x02)) LedOn(x);         // нет поворота лотков
   if(state&0x10) LedOn(6);            // ГОРИЗОНТ УСТАНОВЛЕН
-  if(Alarm&countsec) LedOn(7);        // Led Alarm
+  if(ALARM & countsec) LedOn(7);      // Led Alarm
 }
 
 void displ_1(int16_t val, uint8_t comma){
@@ -124,17 +124,17 @@ void displ_3(int16_t val, int8_t mode, int8_t errors, int8_t warning){
 	switch (mode){
 		case ERRORS:  chr=SIMBL_A;    break;  // A
 		case FUSES:   chr=SIMBL_Pe;   break;  // П
-    case SETUP:   chr=SIMBL_u;    break;  // u
-    case SETUP2:  chr=SIMBL_TOPn; break;  // TOPn
+    case SETUP:   chr=SIMBL_MBott; break; // MINUS Bott
+    case SETUP2:  chr=SIMBL_M_Top; break; // MINUS Top
 		case SERVIS:  chr=SIMBL_c;    break;  // c
 		case CONTROL: chr=SIMBL_P;    break;  // P
 		case PASS:    chr=SIMBL_TOPn; break;  // TOPn
-    case VERS:    chr=SIMBL_TOPu; break;  // TOPu
+    case VERS:    chr=SIMBL_u;    break;  // u
     case MODUL:   chr=SIMBL_o;    break;  // o
 		case DISPL:   chr=SIMBL_d;    break;  // d
 		default:      chr=SIMBL_BL;
 	}
-  if(Superheat&(countsec&1)||errors&0x7F||warning&0x7F){val=0; chr=SIMBL_BL;} // мигание дисплея
+  if(OVRHEAT&(countsec&1)||errors&0x7F||warning&0x7F){val=0; chr=SIMBL_BL;} // мигание дисплея
 	if (val<100){
 		if (val==-10){
 			setChar(6, SIMBL_Pe); // П
@@ -154,7 +154,7 @@ void displ_3(int16_t val, int8_t mode, int8_t errors, int8_t warning){
 		}
 	}
 	else {
-		setChar(6, SIMBL_TOPo);
+		setChar(6, chr);
 		setChar(7, SIMBL_TOPo);
 	}
 }
@@ -165,10 +165,10 @@ void display(struct eeprom *t, struct rampv *ram){
   switch (displmode){
     case 0: 
        i=ram->fuses & 0x7F;// i>>=2; i&=0x1F;
-       displ_1(ram->pvT[0],COMMA); if(Hih) displ_2(ram->pvRH,NOCOMMA); else displ_2(ram->pvT[1],COMMA);
+       displ_1(ram->pvT[0],COMMA); if(HIH5030) displ_2(ram->pvRH,NOCOMMA); else displ_2(ram->pvT[1],COMMA);
        if(psword==10) xx=-10;
        else if(psword>0) {xx=psword; yy=PASS;}
-       else if(Superheat) xx=90;
+       else if(OVRHEAT) xx=90;
        else if(ram->errors&0x70) xx=66+((ram->errors&0x70)>>4);
        else if(ram->errors&0x0F) xx=50+ram->errors&0x0F;
        else if(i) {xx=i; yy=FUSES;}
@@ -179,12 +179,12 @@ void display(struct eeprom *t, struct rampv *ram){
        else if(t->state&0x04) xx=3;         // Режим "подгототка к ВКЛЮЧЕНИЮ"
        else if((t->state&0x18)==0x08) xx=4; // ГОРИЗОНТ УСТАНОВЛЕН
        else if(t->state&0x80) xx=5;         // Поворот лотков при ОТКЛЮЧЕННОЙ камере !!!
-       else if(Aeration) xx=6;              // Проветривание
-       else if(Carbon) xx=7;                // Углекислый газ
-       else {xx=0; yy=0;}                   // ОТКЛЮЧЕН!
+       else if(VENTIL) xx=6;                // Проветривание
+       else if(CARBON) xx=7;                // Углекислый газ
+       else {xx=ram->cellID&0x1F; yy=0;}// ОТКЛЮЧЕН! показываем номер Блока "n1"
        break;
     //---------------уставка t0;-------------------------уставка RH;---------------------уставка t1;-----------------"d1"---------
-    case 1: displ_1(t->spT[0],COMMA); if(Hih) displ_2(t->spRH[1],NOCOMMA); else displ_2(t->spT[1],COMMA); xx=displmode; yy=DISPL; break;
+    case 1: displ_1(t->spT[0],COMMA); if(HIH5030) displ_2(t->spRH[1],NOCOMMA); else displ_2(t->spT[1],COMMA); xx=displmode; yy=DISPL; break;
     //-------------------t1;--------------------t2;------------------"d2"---------
     case 2: displ_1(ram->pvT[1],COMMA); displ_2(ram->pvT[2],COMMA); xx=displmode; yy=DISPL; break;
     //--------------- CO2 ------------------------ flap ----------------------"d3"------------------
@@ -201,19 +201,19 @@ void display_setup(struct eeprom *t){
 	if(buf>999) buf=999; else if(buf<-99) buf=-99;
 	switch (setup){
 		case 1: displ_1(buf,COMMA); clr_2(); break;                    // У1
-		case 2: if(Hih){clr_1(); displ_2(buf,NOCOMMA);} else {displ_1(buf,COMMA); clr_2();} break;// У2
+		case 2: if(HIH5030){clr_1(); displ_2(buf,NOCOMMA);} else {displ_1(buf,COMMA); clr_2();} break;// У2
 		case 3: if(buf<0) buf=0; displ_1(buf,NOCOMMA); clr_2(); break; // У3 время отключенного состояния
 		case 4: if(buf<0) buf=0; displ_1(buf,NOCOMMA); clr_2(); break; // У4 время включенного состояния (если не 0 то это секунды)
 		case 5: displ_1(buf,COMMA); clr_2(); break;                    // У5 тревога по каналу 1
-		case 6: if(Hih){clr_1(); displ_2(buf,NOCOMMA);} else {displ_1(buf,COMMA); clr_2();} break;// У6 тревога по каналу 2
+		case 6: if(HIH5030){clr_1(); displ_2(buf,NOCOMMA);} else {displ_1(buf,COMMA); clr_2();} break;// У6 тревога по каналу 2
 		case 7: displ_1(buf,COMMA); clr_2(); break;                    // У7 смещение для ВКЛ. вспомогательного канала 1
 		case 8: displ_1(buf,COMMA); clr_2(); break;                    // У8 смещение для ОТКЛ. вспомогательного канала 1
 		case 9:                                                        // У9 смещение для ВКЛ. вспомогательного канала 2
-			if(t->extendMode==4){clr_1(); if(Hih) displ_2(buf,NOCOMMA); else displ_2(buf,COMMA);}
+			if(t->extendMode==4){clr_1(); if(HIH5030) displ_2(buf,NOCOMMA); else displ_2(buf,COMMA);}
 			else {displ_1(buf,COMMA); clr_2();}
 			break;
 		case 10:                                                       // У10 смещение для ОТКЛ. вспомогательного канала 2
-			if(t->extendMode==4){clr_1(); if(Hih) displ_2(buf,NOCOMMA); else displ_2(buf,COMMA);}
+			if(t->extendMode==4){clr_1(); if(HIH5030) displ_2(buf,NOCOMMA); else displ_2(buf,COMMA);}
 			else {displ_1(buf,COMMA); clr_2();}
 			break;
 

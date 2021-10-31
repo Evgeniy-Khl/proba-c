@@ -67,30 +67,50 @@ void Error_Handler(void);
 #define LED2_GPIO_Port GPIOC
 #define KEY_S2_Pin GPIO_PIN_0
 #define KEY_S2_GPIO_Port GPIOA
+#define SD_CS_Pin GPIO_PIN_4
+#define SD_CS_GPIO_Port GPIOA
+#define SD_SCK_Pin GPIO_PIN_5
+#define SD_SCK_GPIO_Port GPIOA
+#define SD_MISO_Pin GPIO_PIN_6
+#define SD_MISO_GPIO_Port GPIOA
+#define SD_MOSI_Pin GPIO_PIN_7
+#define SD_MOSI_GPIO_Port GPIOA
+#define ADC_CURR_Pin GPIO_PIN_0
+#define ADC_CURR_GPIO_Port GPIOB
+#define ADC_HUM_Pin GPIO_PIN_1
+#define ADC_HUM_GPIO_Port GPIOB
 #define SSD_SCL_Pin GPIO_PIN_10
 #define SSD_SCL_GPIO_Port GPIOB
 #define SSD_SDA_Pin GPIO_PIN_11
 #define SSD_SDA_GPIO_Port GPIOB
+#define OUT_RCK_Pin GPIO_PIN_12
+#define OUT_RCK_GPIO_Port GPIOB
 #define DISPL_STB_Pin GPIO_PIN_14
 #define DISPL_STB_GPIO_Port GPIOB
+#define Bluetooth_STATE_Pin GPIO_PIN_8
+#define Bluetooth_STATE_GPIO_Port GPIOA
 #define Blutooth_TX_Pin GPIO_PIN_9
 #define Blutooth_TX_GPIO_Port GPIOA
 #define Blutooth_RX_Pin GPIO_PIN_10
 #define Blutooth_RX_GPIO_Port GPIOA
+#define DE485_Pin GPIO_PIN_11
+#define DE485_GPIO_Port GPIOA
 #define AM2301_Pin GPIO_PIN_12
 #define AM2301_GPIO_Port GPIOA
 #define Beeper_Pin GPIO_PIN_15
 #define Beeper_GPIO_Port GPIOA
 #define Door_Pin GPIO_PIN_3
 #define Door_GPIO_Port GPIOB
+#define OVERHEAT_Pin GPIO_PIN_4
+#define OVERHEAT_GPIO_Port GPIOB
 #define mem_SCL_Pin GPIO_PIN_6
 #define mem_SCL_GPIO_Port GPIOB
 #define mem_SDA_Pin GPIO_PIN_7
 #define mem_SDA_GPIO_Port GPIOB
-#define OneWr2_Pin GPIO_PIN_8
-#define OneWr2_GPIO_Port GPIOB
-#define OneWR_Pin GPIO_PIN_9
-#define OneWR_GPIO_Port GPIOB
+#define OneW_2R_Pin GPIO_PIN_8
+#define OneW_2R_GPIO_Port GPIOB
+#define OneWR_1_Pin GPIO_PIN_9
+#define OneWR_1_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 #define VERSION       1       // версия ПО
 #define EEPROM_I2C_PORT hi2c1
@@ -124,22 +144,22 @@ void Error_Handler(void);
 #define ID_FLAP         0xF7    // идентификатор блока
 #define RESETCMD        0xC1    // Generate Reset Pulse
 
-#define CANAL1_ON(x)  x |= 1<<0  // симистор НАГРЕВАТЕЛЯ
-#define CANAL1_OFF(x) x &= ~(1<<0)
-#define CANAL1_IN(x)  x &= (1<<0)
-#define CANAL2_ON(x)  x |= 1<<1  // реле или симистор УВЛАЖНЕНИЯ
-#define CANAL2_OFF(x) x &= ~(1<<1)
-#define CANAL2_IN(x)  x &= (1<<1)
-#define EXT1_ON(x)    x |= 1<<2  // реле вспомогательного канала
-#define EXT1_OFF(x)   x &= ~(1<<2)
-#define EXT2_ON(x)    x |= 1<<3  // реле вспомогательного канала
-#define EXT2_OFF(x)   x &= ~(1<<3)
-#define TURN_ON(x)    x |= 1<<4  // поворот
-#define TURN_OFF(x)   x &= ~(1<<4)
-#define TURN_IN(x)    x &= (1<<4)
-#define COOLER_ON(x)  x |= 1<<5  // вентилятор охладителя
-#define COOLER_OFF(x) x &= ~(1<<5)  // вентилятор охладителя
-#define ALL_OFF(x)    x &= ~((1<<0)|(1<<1)|(1<<2)|(1<<3))
+//#define CANAL1_ON(x)  x |= 1<<0  // симистор НАГРЕВАТЕЛЯ
+//#define CANAL1_OFF(x) x &= ~(1<<0)
+//#define CANAL1_IN(x)  x &= (1<<0)
+//#define CANAL2_ON(x)  x |= 1<<1  // реле или симистор УВЛАЖНЕНИЯ
+//#define CANAL2_OFF(x) x &= ~(1<<1)
+//#define CANAL2_IN(x)  x &= (1<<1)
+//#define EXT1_ON(x)    x |= 1<<2  // реле вспомогательного канала
+//#define EXT1_OFF(x)   x &= ~(1<<2)
+//#define EXT2_ON(x)    x |= 1<<3  // реле вспомогательного канала
+//#define EXT2_OFF(x)   x &= ~(1<<3)
+//#define TURN_ON(x)    x |= 1<<4  // поворот
+//#define TURN_OFF(x)   x &= ~(1<<4)
+//#define TURN_IN(x)    x &= (1<<4)
+//#define COOLER_ON(x)  x |= 1<<5  // вентилятор охладителя
+//#define COOLER_OFF(x) x &= ~(1<<5)  // вентилятор охладителя
+//#define ALL_OFF(x)    x &= ~((1<<0)|(1<<1)|(1<<2)|(1<<3))
 
 #define SIMBL_A     10
 #define SIMBL_B     11
@@ -163,9 +183,41 @@ void Error_Handler(void);
 #define SIMBL_MBott 29
 #define SIMBL_BL    30
 
-#define DEN           20     // denominator - делитель для вывода на дисплей в секундах 0,0
-#define MINRELAYMODE  0 // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1] 4->ШИ по кан.[1]
+#define DEN           20  // denominator - делитель для вывода на дисплей в секундах 0,0
+#define MINRELAYMODE  0   // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1] 4->ШИ по кан.[1]
 #define MAXRELAYMODE  4
+/* ---структура с битовыми полями -----*/
+struct byte {
+    unsigned a0: 1;
+    unsigned a1: 1;
+    unsigned a2: 1;
+    unsigned a3: 1;
+    unsigned a4: 1;
+    unsigned a5: 1;
+    unsigned a6: 1;
+    unsigned a7: 1;
+};
+ 
+union Byte {
+    unsigned char value;
+    struct byte bitfield;
+};
+
+#define CHECK   portFlag.bitfield.a0  // Start of all checks
+#define ALARM   portFlag.bitfield.a1  // Alarm flag
+#define OVRHEAT portFlag.bitfield.a2  // Overheat flag
+#define EEPSAVE portFlag.bitfield.a3  // Overheat flag
+#define VENTIL 	portFlag.bitfield.a4  // Ventilation flag
+#define CARBON 	portFlag.bitfield.a5  // Carbon flag
+#define HIH5030	portFlag.bitfield.a6  // exist HIH5030
+#define AM2301	portFlag.bitfield.a7  // exist AM2301
+
+#define HEATER  portOut.bitfield.a0  // НАГРЕВАТЕЛЬ
+#define HUMIDI	portOut.bitfield.a1  // УВЛАЖНИТЕЛЬ
+#define FLAP		portOut.bitfield.a2  // Заслонка воздухообмена
+#define EXT2		portOut.bitfield.a3  // Вспомогательный канал
+#define TURN		portOut.bitfield.a4  // Поворот лотков
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

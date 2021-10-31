@@ -3,8 +3,8 @@
 #include "module.h"
 #include "ds18b20.h"
 
-extern uint8_t outbuffer[], inbuffer[], Alarm, cmdmodule, beepOn;
-
+extern uint8_t beepOn;
+uint8_t outbuffer[4], inbuffer[4], cmdmodule;
 //--------------------------------------------------
 __STATIC_INLINE void DelayMicro(__IO uint32_t micros){
   micros *= (SystemCoreClock / 1000000) / 8;
@@ -96,7 +96,7 @@ int8_t chkcooler(uint8_t state){ // проверка вращения тихоходного вентилятора
      byte = inbuffer[0];
      countTry = 0;
      if((state&0x41)==0x41){    // если ВКЛЮЧЕН мониторинг тихоходного вентилятора
-       if(byte<1) Alarm=1;      // слабое вращение вентилятора
+       if(byte<1) ALARM = 1;    // слабое вращение вентилятора
       }
    }
   else if(++countTry>5) byte = -1; // Отказ модуля Холла
@@ -122,7 +122,7 @@ int8_t chkhorizon(uint8_t state){ // проверка прохода через горизонт
             if(inbuffer[1]==2)                                 // 2-> поворот НЕ прошел
              {
                cmdmodule=0;
-               if((state&0x21)==0x21) {Alarm=1;}      // если ВКЛЮЧЕН камера и мониторинг поворота лотков
+               if((state&0x21)==0x21) {ALARM = 1;}         // если ВКЛЮЧЕН камера и мониторинг поворота лотков
                if((state&0xA0)==0xA0) {beepOn = DURATION;} // если ВКЛЮЧЕН ТОЛЬКО ПОВОРОТ ЛОТКОВ
              } 
             else if(inbuffer[1]==3) {cmdmodule=0;} // 3-> поворот прошел

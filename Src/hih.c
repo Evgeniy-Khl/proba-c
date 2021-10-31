@@ -3,7 +3,7 @@
 
 #define VSUPPLY   	3200
 
-extern float PVold1, PVold2;
+float PVold1, PVold2;
 extern const float A1, A2, A3;
 
 // для HIH-5030

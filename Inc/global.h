@@ -56,14 +56,16 @@ extern struct eeprom {
     uint8_t Zonality;   // 1 байт ind=49;       порог зональности в камере ----------- 24 bytes ------------
 } sp;// ------------------ »“ќ√ќ 50 bytes -------------------------------
 
+extern union Byte portFlag;
+extern union Byte portOut;
 /* ---структура с битовыми пол€ми -----*/
 //extern struct byte {
-//    unsigned a0: 1;   // симистор Ќј√–≈¬ј“≈Ћя
-//    unsigned a1: 1;   // реле или симистор ”¬Ћј∆Ќ≈Ќ»я
-//    unsigned a2: 1;   // реле вспомогательного канала
-//    unsigned a3: 1;   // реле вспомогательного канала
-//    unsigned a4: 1;   // поворот
-//    unsigned a5: 1;   // вентил€тор охладител€
+//    unsigned a0: 1;
+//    unsigned a1: 1;
+//    unsigned a2: 1;
+//    unsigned a3: 1;
+//    unsigned a4: 1;
+//    unsigned a5: 1;
 //    unsigned a6: 1;
 //    unsigned a7: 1;
 //};

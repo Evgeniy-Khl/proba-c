@@ -490,6 +490,11 @@
               <FileType>1</FileType>
               <FilePath>..\Drivers\STM32F1xx_HAL_Driver\Src\stm32f1xx_hal_uart.c</FilePath>
             </File>
+            <File>
+              <FileName>am2301.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\am2301.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

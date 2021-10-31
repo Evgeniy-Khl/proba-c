@@ -1,9 +1,8 @@
 #include "main.h"
 #include "global.h"   // здесь определена структура eeprom и структура rampv
-extern char SSDBuffer[];
-extern uint8_t show, ok0, ok1, changeDispl, setup, Hih, waitset, waitkey, servis, displmode, modules, disableBeep, psword, keynum, keyBuffer[];
-extern int16_t buf, alarmErr, buf, current, currAdc, thermistorAdc, RHadc;
-extern uint32_t cnt1;
+char SSDBuffer[20];
+extern uint8_t show, ok0, ok1, setup, waitset, waitkey, servis, displmode, modules, disableBeep, psword, keynum;
+extern int16_t alarmErr, buf, current, currAdc, thermistorAdc, humAdc;
 
 void dsplMss(uint8_t *data, struct rampv *ram){
   uint8_t x,y,i;
@@ -87,16 +86,6 @@ void dsplMss(uint8_t *data, struct rampv *ram){
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
           y+=10;
-          sprintf(SSDBuffer,"Wning=%i  Error=%i",ram->warning,ram->errors); 
-          SSD1306_GotoXY(0,y);
-          SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
-          SSD1306_UpdateScreen();
-          y+=10;
-          sprintf(SSDBuffer,"Fuses=%i  Modul=%i",ram->fuses,modules); 
-          SSD1306_GotoXY(0,y);
-          SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
-          SSD1306_UpdateScreen();
-          y+=10;
           sprintf(SSDBuffer,"knm=%i  kkd=%i",keynum,keynum); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
@@ -106,27 +95,33 @@ void dsplMss(uint8_t *data, struct rampv *ram){
           SSD1306_Fill(SSD1306_COLOR_BLACK); //clear oled
           y=0;
           
-          sprintf(SSDBuffer,"T0 =%3i  T1 =%i",ram->pvT[0],ram->pvT[1]); 
+          sprintf(SSDBuffer,"Stat=%2x  Flag=%2x",*(data+40),portFlag.value); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
           y+=10;
-          sprintf(SSDBuffer,"Cur=%3i  A2=%4i",current,currAdc);
+          sprintf(SSDBuffer,"Warng=%2x  Err=%2x",ram->warning,ram->errors); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
           y+=10;
-          sprintf(SSDBuffer,"RH =%3i  A4=%4i",ram->pvRH,RHadc);  
+          sprintf(SSDBuffer,"T0 =%3i  T1 =%3i",ram->pvT[0],ram->pvT[1]); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
           y+=10;
-          sprintf(SSDBuffer,"Cnt1=%10u",cnt1); 
+          sprintf(SSDBuffer,"Cur=%3i  A0=%4i",current,currAdc);
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
           y+=10;
-          sprintf(SSDBuffer,"Cnt1=%10u",cnt1); 
+          if(AM2301) sprintf(SSDBuffer,"RH=%4i  T3=%4i",ram->pvRH,ram->pvT[2]);
+          else sprintf(SSDBuffer,"RH=%4i  A1=%4i",ram->pvRH,humAdc);
+          SSD1306_GotoXY(0,y);
+          SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
+          SSD1306_UpdateScreen();
+          y+=10;
+          sprintf(SSDBuffer,"Fus=%3i  Modul=%i",ram->fuses,modules); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();

@@ -2,9 +2,10 @@
 #include "module.h"
 #include "global.h"   // здесь определена структура eeprom и структура rampv
 
-extern uint8_t pwTriac0, pwTriac1, portOut, Superheat, power, ok0, ok1, Hih, current, Aeration, Carbon, modules, valRun;
+uint8_t ok0, ok1;
+extern uint8_t pwTriac0, pwTriac1, current, modules, valRun;
 extern uint16_t statPw[];
-extern float iPart[];
+float iPart[3];
 
 int16_t UpdatePID(int16_t err, uint8_t cn, struct eeprom *t){
  int16_t maxVal;
@@ -28,7 +29,7 @@ int16_t checkPV(uint8_t cn, struct eeprom *t, struct rampv *ram){
  int16_t err;
  signed char d;
   d = t->alarm[cn];
-  if(cn&&Hih){       // канал ВЛАЖНОСТИ HIH-4000
+  if(cn && HIH5030){       // канал ВЛАЖНОСТИ HIH-4000
      if(ram->pvRH > 100) {ram->errors |= (cn+1); err = 0x7FF;}
      else err = t->spRH[1] - ram->pvRH;
      if(abs(err)<d)  ok1 = 1;               // вышли на заданное значение
@@ -67,8 +68,8 @@ uint8_t OutPW(uint8_t cn, struct eeprom *t, struct rampv *ram){
   if(err==0x7FF) return OFF;
   if(t->relayMode & (cn+1)){                 // если установлен релейный режим для [0]-канала -> 1  или  для [1]-канала -> 2
      switch (cn){
-       case 0: d = CANAL1_IN(portOut); break;  // канал 1 (симистор НАГРЕВАТЕЛЯ)
-       case 1: d = CANAL2_IN(portOut); break;  // канал 2 (симистор УВЛАЖНЕНИЯ)
+       case 0: d = HEATER; break;  // канал 1 (симистор НАГРЕВАТЕЛЯ)
+       case 1: d = HUMIDI; break;  // канал 2 (симистор УВЛАЖНЕНИЯ)
      } 
      if(err > t->Hysteresis) err=255;       // ниже (заданной-offSet) включить
      else if(err < 0) err=0;                // выше заданной отключить
@@ -116,23 +117,23 @@ uint8_t RelayNeg(uint8_t cn, uint8_t offSet, uint8_t bias, struct eeprom *t, str
 void heat_wet(struct eeprom *t, struct rampv *ram){
     pwTriac0 = OutPW(0, t, ram);
     if((ram->fuses&5)<5) pwTriac0 = OFF;             // КОРОТКОЕ замыкание или ОСТАНОВ тихоходного вентилятора
-    if(Superheat) {pwTriac0=OFF; ram->errors|=0x80;} // ПЕРЕГРЕВ СИМИСТОРА !!!
-    power = pwTriac0/2;
-    statPw[0]+=power;                           // расчет эконометра
-    if(pwTriac0) CANAL1_ON(portOut);            // включить канал 1 (симистор НАГРЕВАТЕЛЯ)
+    if(OVRHEAT) {pwTriac0=OFF; ram->errors|=0x80;}  // ПЕРЕГРЕВ СИМИСТОРА !!!
+    ram->power = pwTriac0/2;
+    statPw[0]+=ram->power;               // расчет эконометра
+    if(pwTriac0) HEATER = ON;            // включить канал 1 (симистор НАГРЕВАТЕЛЯ)
 
     if(t->relayMode == 4) OutPulse(1, t, ram);       // импульсное управление увлажнителем
     else pwTriac1 = OutPW(1, t, ram);        
-    if(!(ok0&1)) pwTriac1=OFF;                  // отключение УВЛАЖНЕНИЯ при РАЗОГРЕВЕ и ПЕРЕОХЛАЖДЕНИИ
-    if(!(ram->fuses&8)) pwTriac1=OFF;                // ПРЕДОХРАНИТЕЛЬ увлажнителя
-    if(pwTriac1) CANAL2_ON(portOut);            // включить канал 2 (симистор УВЛАЖНЕНИЯ)
-    statPw[1]+=(pwTriac1/2);                    // расчет эконометра
+    if(!(ok0&1)) pwTriac1=OFF;           // отключение УВЛАЖНЕНИЯ при РАЗОГРЕВЕ и ПЕРЕОХЛАЖДЕНИИ
+    if(!(ram->fuses&8)) pwTriac1=OFF;    // ПРЕДОХРАНИТЕЛЬ увлажнителя
+    if(pwTriac1) HUMIDI = ON;            // включить канал 2 (симистор УВЛАЖНЕНИЯ)
+    statPw[1]+=(pwTriac1/2);             // расчет эконометра
 }
 
 void extra_1(struct eeprom *t, struct rampv *ram){
     uint8_t byte;
     byte = RelayNeg(0,t->extOn[0],t->extOff[0], t, ram);// доп. канал -> охлаждение
-    if(Aeration || Carbon){
+    if(VENTIL || CARBON){
       current = checkPV(0, t, ram);                  // Проверяем отклонение температуры
       if(current<(t->alarm[0])) byte = ON;      // если в заданных пределах открыть для ПРОВЕТРИВАНИЯ
       else if(current>(t->alarm[0]*2)) byte = OFF; // иначе закрыть
@@ -140,8 +141,8 @@ void extra_1(struct eeprom *t, struct rampv *ram){
     if(!(ram->fuses&1)) byte = ON;                   // ОСТАНОВ тихоходного вентилятора
     if(!(ram->fuses&0x10)) byte=OFF;                 // ПРЕДОХРАНИТЕЛЬ доп. канал №1
     switch (byte){
-      case ON:  EXT1_ON(portOut); ram->pvFlap = FLAPOPEN; if(modules&8) chkflap(SETFLAP, &ram->pvFlap); break;// -- положение заслонки --
-      case OFF: EXT1_OFF(portOut); ram->pvFlap=FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &ram->pvFlap); break;// установка заслонки; сброс флага запрещения принудительной подачи воды
+      case ON:  FLAP = ON; ram->pvFlap = FLAPOPEN; if(modules&8) chkflap(SETFLAP, &ram->pvFlap); break;// -- положение заслонки --
+      case OFF: FLAP = OFF; ram->pvFlap=FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &ram->pvFlap); break;// установка заслонки; сброс флага запрещения принудительной подачи воды
     }
   
 }
@@ -157,8 +158,8 @@ void extra_2(struct eeprom *t, struct rampv *ram){
   if(!(ram->fuses&0x20)) byte=OFF;                // ПРЕДОХРАНИТЕЛЬ доп. канал №2
   if(t->extendMode>1){
     switch (byte){
-        case ON:  EXT2_ON(portOut);  break;
-        case OFF: EXT2_OFF(portOut); break;
+        case ON:  EXT2 = ON;  break;
+        case OFF: EXT2 = OFF; break;
     }
   }
 }

@@ -1,13 +1,18 @@
 // “ак как чип AT24C32N имеет, три адресных входа (A0, A1 и A2), микросхеме доступны восемь адресов. от 0x50 до 0x57.
 #include "main.h"
 #include "displ.h"
+#include "global.h"   // здесь определена структура eeprom и структура rampv
 
 extern I2C_HandleTypeDef EEPROM_I2C_PORT;
 
+struct {
+  uint8_t eepAddr;
+  uint8_t sizeAddr;
+  uint8_t pageSize;
+} eepMem;
+
 char writing0[9], writing1[9], i;
-extern uint16_t eepAddr;
-extern uint16_t sizeAddr;
-extern uint8_t pageSize, EEPsave;
+
 HAL_StatusTypeDef ret_stat;
 
 void dspl_error(uint8_t status)
@@ -43,7 +48,7 @@ void eep_write(uint16_t memAddr, uint8_t *data){
 	uint8_t i, amount = EEP_DATA;
 	uint8_t *begData = data;
 	uint16_t begMemAddr = memAddr;
-  EEPsave = 0;
+  EEPSAVE = 0;
 	/* ------------ display ------------------ */
 	sprintf(writing0, "Start");//"Starting the test - writing to the memory...\r\n"
 	sprintf(writing1, "writing");
@@ -52,10 +57,10 @@ void eep_write(uint16_t memAddr, uint8_t *data){
   for(i=0;i<8;i++) setChar(i, SIMBL_M_Top);
   SendDataTM1638();
   
-	if (amount-pageSize > 0) writebyte = pageSize;
+	if (amount-eepMem.pageSize > 0) writebyte = eepMem.pageSize;
 	else writebyte = amount;
 	while (amount > 0){
-		ret_stat = HAL_I2C_Mem_Write(&EEPROM_I2C_PORT, eepAddr, memAddr, sizeAddr, (uint8_t*)data, writebyte, HAL_MAX_DELAY);
+		ret_stat = HAL_I2C_Mem_Write(&EEPROM_I2C_PORT, eepMem.eepAddr, memAddr, eepMem.sizeAddr, (uint8_t*)data, writebyte, HAL_MAX_DELAY);
 		if(ret_stat) dspl_error(ret_stat);
 		/* ------------ display ------------------ */
 		sprintf(writing0, "Waiting");//"OK, now waiting until device is ready...\r\n"
@@ -63,7 +68,7 @@ void eep_write(uint16_t memAddr, uint8_t *data){
 		mem_display(1000, (char*)writing0, (char*)writing1);
 		/* --------------------------------------- */
 		for(i=0;i<100;i++) { // wait...
-		  ret_stat = HAL_I2C_IsDeviceReady(&EEPROM_I2C_PORT, eepAddr, 1, HAL_MAX_DELAY);
+		  ret_stat = HAL_I2C_IsDeviceReady(&EEPROM_I2C_PORT, eepMem.eepAddr, 1, HAL_MAX_DELAY);
 		  if(ret_stat == HAL_OK) break;
 		}
 		/* ------------ display ------------------ */
@@ -77,7 +82,7 @@ void eep_write(uint16_t memAddr, uint8_t *data){
 		memAddr += writebyte;
 		data += writebyte;
 		amount -= writebyte;
-		if (amount-pageSize > 0) {writebyte = pageSize; for(i=0;i<8;i++) setChar(i, SIMBL_MINUS); SendDataTM1638();}
+		if (amount-eepMem.pageSize > 0) {writebyte = eepMem.pageSize; for(i=0;i<8;i++) setChar(i, SIMBL_MINUS); SendDataTM1638();}
 		else writebyte = amount;
 	}
 	/* ----------------- NOW COMPARING... ----------------------------- */
@@ -112,10 +117,10 @@ void eep_read(uint16_t memAddr, uint8_t *data){
 //	sprintf(writing1, "reading");
 //	mem_display(1000, (char*)writing0, (char*)writing1);
 	/* --------------------------------------- */
-	ret_stat = HAL_I2C_IsDeviceReady(&EEPROM_I2C_PORT, eepAddr, 1, HAL_MAX_DELAY);
+	ret_stat = HAL_I2C_IsDeviceReady(&EEPROM_I2C_PORT, eepMem.eepAddr, 1, HAL_MAX_DELAY);
 	if(ret_stat) {dspl_error(ret_stat); return;}
 	memAddr = 0x0000;
-	ret_stat = HAL_I2C_Mem_Read(&EEPROM_I2C_PORT, eepAddr, memAddr, sizeAddr, (uint8_t*)data, EEP_DATA, HAL_MAX_DELAY);
+	ret_stat = HAL_I2C_Mem_Read(&EEPROM_I2C_PORT, eepMem.eepAddr, memAddr, eepMem.sizeAddr, (uint8_t*)data, EEP_DATA, HAL_MAX_DELAY);
 	if(ret_stat) dspl_error(ret_stat);
 }
 
@@ -172,7 +177,7 @@ void eep_initial(uint16_t memAddr, uint8_t *data){
 	 20,      // data[49]; Zonality порог зональности в камере = 20 => 0.2 гр.C
 	};
 	memcpy(data, source, EEP_DATA);
-	ret_stat = HAL_I2C_IsDeviceReady(&EEPROM_I2C_PORT, eepAddr, 1, HAL_MAX_DELAY);
+	ret_stat = HAL_I2C_IsDeviceReady(&EEPROM_I2C_PORT, eepMem.eepAddr, 1, HAL_MAX_DELAY);
 	if(ret_stat) {dspl_error(ret_stat); return;}
 
 	eep_write(memAddr, data);
@@ -207,9 +212,9 @@ uint8_t rtc_check(void){
 	SSD1306_Puts("24C32", &Font_11x18, SSD1306_COLOR_WHITE);
   setChar(3,SIMBL_c); setChar(4,3); setChar(4,2);   // C32
   
-	eepAddr = (0x57 << 1);  // HAL expects address to be shifted one bit to the left
-	sizeAddr = I2C_MEMADD_SIZE_16BIT;
-	pageSize = 32;          // AT24C32A или AT24C64A. The 32K/64K EEPROM is capable of 32-byte page writes
+	eepMem.eepAddr = (0x57 << 1);  // HAL expects address to be shifted one bit to the left
+	eepMem.sizeAddr = I2C_MEMADD_SIZE_16BIT;
+	eepMem.pageSize = 32;          // AT24C32A или AT24C64A. The 32K/64K EEPROM is capable of 32-byte page writes
 	i = 1;
 	}
 	else {

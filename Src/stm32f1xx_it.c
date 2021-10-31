@@ -63,7 +63,7 @@ extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim4;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
-extern uint8_t power, getButton, Check, waitset, displmode, psword, servis, setup; 
+extern uint8_t getButton, pwTriac0, pwTriac1;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -235,9 +235,8 @@ void TIM2_IRQHandler(void)
   /* USER CODE END TIM2_IRQn 0 */
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
-  if (++power > 200){
-    power = 0;
-  }
+  if (pwTriac0) --pwTriac0; else HEATER = OFF;
+  if (pwTriac1) --pwTriac1; else HUMIDI = OFF;
   /* USER CODE END TIM2_IRQn 1 */
 }
 
@@ -266,7 +265,7 @@ void TIM4_IRQHandler(void)
   /* USER CODE END TIM4_IRQn 0 */
   HAL_TIM_IRQHandler(&htim4);
   /* USER CODE BEGIN TIM4_IRQn 1 */
-  Check = 1;
+  CHECK = 1;
   /* USER CODE END TIM4_IRQn 1 */
 }
 

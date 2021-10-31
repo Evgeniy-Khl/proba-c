@@ -3,8 +3,9 @@
 #include "keypad.h"
 
 extern int8_t countsec, getButton, displmode;
-extern uint8_t ok0, ok1, changeDispl, keyBuffer[], keynum, setup, Hih, waitset, waitkey, topOwner, topUser, botUser, modules, servis, beepOn, disableBeep, psword, Check, EEPsave;
-extern int16_t buf, alarmErr;
+extern uint8_t ok0, ok1, keyBuffer[], keynum, setup, waitset, waitkey, modules, servis;
+uint8_t beepOn, disableBeep, topOwner, topUser, botUser, psword;
+int16_t buf, alarmErr;
 
 void pushkey(void){
  uint8_t xx, keykod;
@@ -43,7 +44,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
               switch (setup)
                 {
                  case 1:  buf=t->spT[0]; break;         // У1 Уставка температуры
-                 case 2:  if(Hih) buf=t->spRH[1]; else buf=t->spT[1]; break;// У2 Уставка влажности
+                 case 2:  if(HIH5030) buf=t->spRH[1]; else buf=t->spT[1]; break;// У2 Уставка влажности
                  case 3:  buf=t->timer[0]; break;       // У3 время отключенного состояния
                  case 4:  buf=t->timer[1]; break;       // У4 время включенного состояния (если не 0 то это секунды)
                  case 5:  buf=t->alarm[0]; break;       // У5 тревога по каналу 1
@@ -58,11 +59,11 @@ void checkkey(struct eeprom *t, int16_t pvT0){
              } break;
            case KEY_2:
              {
-              buf++; EEPsave=1; if (waitkey) waitkey--;
+              buf++; EEPSAVE=1; if (waitkey) waitkey--;
               switch (setup)
                {
                 case 1:  t->spT[0]=buf; break;                                                                   // У1  Уставка температуры
-                case 2:  if (Hih) t->spRH[1]=buf; else t->spT[1]=buf; break;                                     // У2  Уставка влажности
+                case 2:  if (HIH5030) t->spRH[1]=buf; else t->spT[1]=buf; break;                                     // У2  Уставка влажности
                 case 3:  if (buf<1) buf=1; t->timer[0]=buf; break;                                               // У3  время отключенного состояния
                 case 4:  t->timer[1]=buf; break;                                                                 // У4  время включенного состояния (секунды)
                 case 5:  buf&=0x1F; if (buf<1) buf=1; t->alarm[0]=buf; break;                                    // У5  тревога по каналу 1
@@ -84,7 +85,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
                           case  3: topOwner=14; break;// разрешение вводить корекцию датчика влажности
                           case 10: topUser=TOPKOFF; botUser=BOTKOFF; break; // разрешение вводить корекцию коэфициентов cof[3];
                          };
-                         EEPsave=0; waitset=20;
+                         EEPSAVE=0; waitset=20;
                   break;
                 //--------------------------- Меню специалиста ---------------------------------------------------------
                 case 17: if(buf) t->extendMode=1; else t->extendMode=0; break;           // расширенный режим работы  0-СИРЕНА; 1-АВАРИЙНОЕ ОТКЛЮЧЕНИЕ
@@ -126,11 +127,11 @@ void checkkey(struct eeprom *t, int16_t pvT0){
              } break;
            case KEY_4:
              {
-              buf--; EEPsave=1; if (waitkey) waitkey--;
+              buf--; EEPSAVE=1; if (waitkey) waitkey--;
               switch (setup)
                {
                 case 1:  t->spT[0]=buf; break;                                                                   // У1  Уставка температуры
-                case 2:  if (Hih) t->spRH[1]=buf; else t->spT[1]=buf; break;                                     // У2  Уставка влажности
+                case 2:  if (HIH5030) t->spRH[1]=buf; else t->spT[1]=buf; break;                                     // У2  Уставка влажности
                 case 3:  if (buf<1) buf=1; t->timer[0]=buf; break;                                               // У3  время отключенного состояния
                 case 4:  t->timer[1]=buf; break;                                                                 // У4  время включенного состояния (секунды)
                 case 5:  buf&=0x1F; if (buf<1) buf=1; t->alarm[0]=buf; break;                                    // У5  тревога по каналу 1
@@ -152,7 +153,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
                           case  3: topOwner=14;            break;// разрешение вводить корекцию датчика влажности
                           case 10: topUser=TOPKOFF; botUser=BOTKOFF; break; // разрешение вводить корекцию коэфициентов cof[3];
                          };
-                         EEPsave=0; waitset=20;
+                         EEPSAVE=0; waitset=20;
                   break;
                 //--------------------------- Меню специалиста ---------------------------------------------------------
                 case 17: if(buf) t->extendMode=1; else t->extendMode=0; break;           // расширенный режим работы  0-СИРЕНА; 1-АВАРИЙНОЕ ОТКЛЮЧЕНИЕ
@@ -170,7 +171,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
                 case 31: buf&=0x3FF; if(buf<100) buf=100; t->Ti[1]=buf; break;    // ограничено 100 - 1023;
                }; 
              } break;
-           case KEY_6: setup=0;EEPsave = 0;displmode=0;psword=0;buf=0;beepOn=DURATION*3; break;
+           case KEY_6: setup=0;EEPSAVE = 0;displmode=0;psword=0;buf=0;beepOn=DURATION*3; break;
           }; 
        }
     else if (servis)          // СЕРВИСНЫЙ режим  ----------------------------
@@ -180,7 +181,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
           {
            case KEY_2:
             {
-              buf++; EEPsave=1; waitkey=WAITCOUNT;
+              buf++; EEPSAVE=1; waitkey=WAITCOUNT;
               switch (servis)
                {
                  case 7:  t->identif = buf&0x3F; break;      // C7 -> identif
@@ -213,7 +214,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
             } break;
            case KEY_4:
             {
-              buf--; EEPsave=1; waitkey=WAITCOUNT;
+              buf--; EEPSAVE=1; waitkey=WAITCOUNT;
               switch (servis)
                {
                  case 7:  t->identif = buf&0x3F; break;      // C7 -> identif
@@ -227,7 +228,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
                  case 15: t->Zonality= buf&0x3F; break;      // C15-> порог зональности в камере
                }
             } break;
-           case KEY_6: servis=0; EEPsave = 0; displmode=0; psword=0; buf=0; topUser=TOPUSER; botUser=BOTUSER; t->state &=0xE7; beepOn=DURATION*3; break;
+           case KEY_6: servis=0; EEPSAVE = 0; displmode=0; psword=0; buf=0; topUser=TOPUSER; botUser=BOTUSER; t->state &=0xE7; beepOn=DURATION*3; break;
           }
        }
     else if(psword==10)       // режим ПАРОЛЬ ВВЕДЕН -------------------------
