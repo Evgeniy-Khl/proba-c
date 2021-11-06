@@ -2,8 +2,8 @@
 #include "global.h"   // здесь определена структура eeprom и структура rampv
 #include "module.h"
 #include "ds18b20.h"
+#include "proc.h"
 
-extern uint8_t beepOn;
 uint8_t outbuffer[4], inbuffer[4], cmdmodule;
 //--------------------------------------------------
 __STATIC_INLINE void DelayMicro(__IO uint32_t micros){
@@ -96,7 +96,7 @@ int8_t chkcooler(uint8_t state){ // проверка вращения тихоходного вентилятора
      byte = inbuffer[0];
      countTry = 0;
      if((state&0x41)==0x41){    // если ВКЛЮЧЕН мониторинг тихоходного вентилятора
-       if(byte<1) ALARM = 1;    // слабое вращение вентилятора
+       if(byte<1) byte = 1;     // слабое вращение вентилятора
       }
    }
   else if(++countTry>5) byte = -1; // Отказ модуля Холла
@@ -111,30 +111,24 @@ int8_t chkhorizon(uint8_t state){ // проверка прохода через горизонт
   if(state&0x20) outbuffer[2]=1;  // Data 2 ВКЛЮЧЕН мониторинг поворота лотков
   else outbuffer[2]=0;            // Data 2 ОТКЛЮЧЕН мониторинг поворота лотков
   byte = module_check(ID_HORIZON);// идентификатор блока
-  if(byte)                        // если блок ответил ...
-   {
-     byte = inbuffer[0];
+  if(byte){                        // если блок ответил ...
+     byte = 0;//inbuffer[0]; ???????????????????????????????????????????????????
      countTry = 0;
-     switch(cmdmodule)
-       {
+     switch(cmdmodule){
          case NEW_TURN:
-          {
-            if(inbuffer[1]==2)                                 // 2-> поворот НЕ прошел
-             {
+            if(inbuffer[1]==2){                             // 2-> поворот НЕ прошел
                cmdmodule=0;
-               if((state&0x21)==0x21) {ALARM = 1;}         // если ВКЛЮЧЕН камера и мониторинг поворота лотков
-               if((state&0xA0)==0xA0) {beepOn = DURATION;} // если ВКЛЮЧЕН ТОЛЬКО ПОВОРОТ ЛОТКОВ
-             } 
-            else if(inbuffer[1]==3) {cmdmodule=0;} // 3-> поворот прошел
-//            else fuses |= 2;                                   // 1-> ожидаю поворот
-          }; break;
+               if((state&0x21)==0x21) byte = 1;             // если ВКЛЮЧЕН камера и мониторинг поворота лотков
+               if((state&0xA0)==0xA0) beeper_ON(DURATION);  // если ВКЛЮЧЕН ТОЛЬКО ПОВОРОТ ЛОТКОВ
+            } 
+            else if(inbuffer[1]==3) {cmdmodule=0;}          // 3-> поворот прошел
+            break;
          case SETHORIZON:
-          {
-            if((state&0x18)==0) cmdmodule=0;                   // отмена установки в горизонт
-          }; break;
+            if((state&0x18)==0) cmdmodule=0;                // отмена установки в горизонт
+            break;
          default: cmdmodule=0;
-       };
-   }
+     }
+  }
   else if(++countTry>5) byte = -1; // Отказ модуля ГОРИЗОНТ
   return byte;
 }

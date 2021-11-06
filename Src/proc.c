@@ -6,25 +6,34 @@
 
 const float A4=1.8, A5=0.81, A6=0.01;  // порядок a=0.9 (A1=2a; A2=a^2; A3=(1-a)^2)
 const float A1=1.6, A2=0.64, A3=0.04;  // порядок a=0.8 (A1=2a; A2=a^2; A3=(1-a)^2)
+const float VREF = 3.3f;
+
 uint8_t pvAeration;
+extern SPI_HandleTypeDef hspi2;
 extern int8_t countsec;
-extern uint8_t ok0, ok1, ext[], cmdmodule, beepOn, modules, disableBeep;
-extern int16_t alarmErr;
+extern uint8_t ok0, ok1, ext[], cmdmodule, modules, disableBeep;
+extern int16_t alarmErr, beepOn;
 float stold[2][2];
 
 void rotate_trays(uint8_t timer0, uint8_t timer1, struct rampv *ram){ // симистричный таймер
-  if(TURN){if(--ram->pvTimer==0) {ram->pvTimer=timer0; TURN = OFF; cmdmodule=NEW_TURN;}}
-  else {if(--ram->pvTimer==0) {if (timer1) {ram->pvTimer=timer1; TURN = ON;} else {ram->pvTimer=timer0; TURN = ON;} cmdmodule=NEW_TURN;}};
+  uint8_t result;
+  if(TURN){if(--ram->pvTimer==0) {ram->pvTimer=timer0; result = OFF; cmdmodule=NEW_TURN;}}
+  else {if(--ram->pvTimer==0) {if (timer1) {ram->pvTimer=timer1; result = ON;} else {ram->pvTimer=timer0; result = ON;} cmdmodule=NEW_TURN;}};
+  if(ram->fuses&0x08) result = OFF;      // ПРЕДОХРАНИТЕЛЬ реле поворотов
+  switch (result){
+    case ON:  TURN = ON; break;
+    case OFF: TURN = OFF; break;
+  }
 }
 
-void CO2_check(uint16_t spCO20, uint16_t spCO21, uint16_t pvCO20){ // ПРОВЕРКА концентрации СО2 производиться каждую минуту
- uint16_t sp;
-  sp=(int)spCO20*100;
-  if(pvCO20>sp) CARBON = ON;
-  sp=(int)spCO21*100;
-  if(pvCO20<sp) CARBON = OFF;
-  if(ext[2]==255) pvCO20 = 0;// если модуль СО2 НЕПОДКЛЮЧЕН обнуление на случай отключения от компьютера
-}
+//void CO2_check(uint16_t spCO20, uint16_t spCO21, uint16_t pvCO20){ // ПРОВЕРКА концентрации СО2 производиться каждую минуту
+// uint16_t sp;
+//  sp=(int)spCO20*100;
+//  if(pvCO20>sp) CARBON = ON;
+//  sp=(int)spCO21*100;
+//  if(pvCO20<sp) CARBON = OFF;
+//  if(ext[2]==255) pvCO20 = 0;// если модуль СО2 НЕПОДКЛЮЧЕН обнуление на случай отключения от компьютера
+//}
 
 void aeration_check(uint8_t air0, uint8_t air1){ // ПРОВЕТРИВАНИЕ
   if(VENTIL){if(--pvAeration==0) {pvAeration=air0; VENTIL = OFF;}}
@@ -40,64 +49,70 @@ uint8_t sethorizon(uint8_t timer0, uint8_t TurnTime, struct rampv *ram){ // уста
         ram->pvTimer=timer0; state = 0x10; TURN = OFF;     // ГОРИЗОНТ УСТАНОВЛЕН
         cmdmodule=SETHORIZON;                              // команда дополнительному модулю
      }
-     else {TURN = ON; counter=TurnTime;}                   // если лотки в НЕЖНЕМ положении то разгрузка лотков
+     else {
+      if((ram->fuses&0x08)==0) TURN = ON;      // ПРЕДОХРАНИТЕЛЬ реле поворотов 
+      counter=TurnTime;
+     }                   // если лотки в НЕЖНЕМ положении то разгрузка лотков
   }
   return state;
 }
 
-uint16_t ratioCurr(uint16_t curr, uint8_t KoffCurr){
-  if(curr<14) curr=0;                                      // если сила тока < 1,4А то ток равен 0А; 90mV при нулевом токе  (10mV==1)
-  curr*=KoffCurr; curr/=100;                               // Ток - 10А = 1В = 102 ADC
+uint16_t adcTomV(uint16_t curr){
+  float res;
+  if(curr < 125) curr = 0;                          // меньще 100 mV
+  else {res = curr * VREF / 4096; curr = res*1000;} // в mV
   return curr;
 }
 
-uint16_t powerCurr(uint16_t curr, uint8_t KoffCurr, struct rampv *ram){
-  if(ram->power<100) {curr*=ram->power; curr/=100;}
-  else if(curr<10&&countsec>=0&&KoffCurr) ram->errors|=0x08;    // если ток < 1,0 А. -> НЕИСПРАВНА цепь НАГРЕВАТЕЛЯ
-  return curr;
-}
+
 uint8_t statF2(uint8_t n, uint16_t statPw){
  float val;
   val = A4 * stold[n][0] - A5 * stold[n][1] + A6 * statPw;
   stold[n][1] = stold[n][0];
   stold[n][0] = val;
   return val;
-};
+}
 
-#define DOOR	1//	PINB.0   // концевик дверей
 void chkdoor(struct eeprom *t, struct rampv *ram){
  static uint16_t counter;
-  if (DOOR){  // Дверь ЗАкрыта
-     ram->fuses |= 0x80;  // Состояние дверей
-     if(t->state&4){     //-- если "подгототка к ВКЛЮЧЕНИЮ" то включить камеру --
-        t->state &=0xFB; t->state |=0x01; counter = 0; countsec=-5; ok0=0; ok1=0; ram->pvFlap=FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &ram->pvFlap);
+  uint8_t doorCondition = HAL_GPIO_ReadPin(Door_GPIO_Port, Door_Pin);// концевик дверей
+  doorCondition = 1;  //?????????????????????????????????????????????????????????
+  if(doorCondition){  // Дверь ЗАкрыта
+     ram->fuses &= 0x7F;  // Состояние дверей
+     if(t->condition&4){      //-- если "подгототка к ВКЛЮЧЕНИЮ" то включить камеру --
+        t->condition &=0xFB; t->condition |=0x01; counter = 0; countsec=-5; ok0=0; ok1=0; ram->pvFlap=FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &ram->pvFlap);
         if (t->extendMode==1) EXT2 = OFF; // доп. канал (extendMode==1->ВЕНТИЛЯЦИЯ)
       }
-     else if((t->state&3)==3) {beepOn = DURATION/16; if(++counter>300) {t->state &= 0xF9; counter = 0;}}//-- если превышено ожидание то снимаем "подгототка к ОТКЛЮЧЕНИЮ"
+     else if((t->condition&3)==3) {beeper_ON(DURATION/16); if(++counter>300) {t->condition &= 0xF9; counter = 0;}}//-- если превышено ожидание то снимаем "подгототка к ОТКЛЮЧЕНИЮ"
    }
   else { // Дверь ОТкрыта
-     ram->fuses &= 0x7F;  // Состояние дверей
-     if((t->state&7)==3)//-- если "подгототка к ОТКЛЮЧЕНИЮ" то отключить камеру --
+     ram->fuses |= 0x80;  // Состояние дверей
+     if((t->condition&7)==3)  //-- если "подгототка к ОТКЛЮЧЕНИЮ" то отключить камеру --
       {
-       t->state &=0xFC; t->state |=0x04; counter = 0; ram->power=0; HUMIDI = OFF; FLAP = ON; ram->pvFlap=FLAPOPEN; if(modules&8) chkflap(SETFLAP, &ram->pvFlap);
+       t->condition &=0xFC; t->condition |=0x04; counter = 0; ram->power=0; HUMIDI = OFF; FLAP = ON; ram->pvFlap=FLAPOPEN; if(modules&8) chkflap(SETFLAP, &ram->pvFlap);
        if (t->extendMode==1) EXT2 = ON; // доп. канал (extendMode==1->ВЕНТИЛЯЦИЯ)
       }
-     else if((t->state&7)==1) beepOn = DURATION*2;//-- если камера ВКЛ. то вкл. тревогу.
-     else if(t->state&4) {if(++counter>t->TimeOut) {beepOn = DURATION; ram->warning |=0x20;}}//-- если превышено ожидание то вкл. тревогу.(Режим "подгототка к ВКЛЮЧЕНИЮ")
+     else if((t->condition&7)==1) beeper_ON(DURATION*2);//-- если камера ВКЛ. то вкл. тревогу.
+     else if(t->condition&4) {if(++counter>t->TimeOut) {beeper_ON(DURATION); ALARM = 1;}}//-- если превышено ожидание то вкл. тревогу.(Режим "подгототка к ВКЛЮЧЕНИЮ")
    }
 }
 
-void alarm(struct eeprom *t, struct rampv *ram){
- uint8_t al;
- int16_t error;
-   al=~ram->fuses; al>>=2; al&=0x1F;
-   if(ram->errors+(ram->warning & 0x7F)+al) ALARM = 1;
-   al = OFF;
-   error = abs(t->spT[0]-ram->pvT[0]);
-   if((ram->warning & 3)&&(error-alarmErr)>2) disableBeep=0;  // если при блокироке сирены продолжает увеличиватся ошибка сброс блокировки
-   if(ALARM){
-     if(disableBeep==0) {beepOn = DURATION*2; al = ON;};      // длительность звукового сигнала и включить канал 4
-   }
-   else disableBeep = 0;
-   if(!(ram->fuses&0x20) && t->extendMode==0) EXT2 = OFF;     // ПРЕДОХРАНИТЕЛЬ доп. канал №2
+#define SYSCLOCK 72000000U
+void sysTick_Init(void){
+  MODIFY_REG(SysTick->LOAD, SysTick_LOAD_RELOAD_Msk, SYSCLOCK / 1000 - 1);
+  CLEAR_BIT(SysTick->VAL, SysTick_VAL_CURRENT_Msk);
+  SET_BIT(SysTick->CTRL, SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk | SysTick_CTRL_TICKINT_Msk);
 }
+
+void beeper_ON(uint16_t duration){
+  HAL_GPIO_WritePin(Beeper_GPIO_Port, Beeper_Pin, GPIO_PIN_SET);  // Beeper On
+  beepOn = duration;
+}
+
+void set_Output(void){
+  HAL_SPI_Transmit(&hspi2,(uint8_t*)&portOut, 1, 5000);
+	RCK_H();
+  HAL_Delay(1);
+  RCK_L();
+}
+

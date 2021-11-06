@@ -1,7 +1,6 @@
 #include "main.h"
 #include "global.h"   // здесь определена структура eeprom и структура rampv
 
-//extern uint8_t beepOn;
 extern uint8_t ds18b20_amount;
 
 //--------------------------------------------------
@@ -32,6 +31,7 @@ uint8_t am2301_Start(void){
 //--------------------------------------------------
 uint8_t am2301_Read(struct rampv *ram, uint8_t biasHum){
   uint8_t i, j, status=0, crc, tem[5];
+  int16_t result;
   static uint8_t err;
   if(am2301_Start()){
     DelayMicro(60);// до низкого уровня осталось 46 us. Задержка на 60 микросекунд
@@ -47,20 +47,21 @@ uint8_t am2301_Read(struct rampv *ram, uint8_t biasHum){
           status = (GPIOA->IDR & GPIO_IDR_IDR12 ? 1 : 0);
         }// ожидаем (low-voltage-level)
         
-        if(crc > 15) tem[i]|= 1;  // data "1"
+        if(crc > 23) tem[i]|= 1;  // data "1" 12<crc<33
       }
     }
     crc=tem[0]+tem[1]+tem[2]+tem[3];
     if(crc==tem[4]){
-      ram->pvRH =(int)tem[0]*256+tem[1]; ram->pvT[ds18b20_amount] =(int)tem[2]*256+tem[3]; // DHT21
-      ram->pvRH +=biasHum;                  // коррекция датчика влажности
+      result =((int)tem[0]*256+tem[1])/10; 
+      if(ds18b20_amount<3) ram->pvT[2] =(int)tem[2]*256+tem[3]; // DHT21
+      if(result > 100) result=100; else if(result < 0) result=0;
+      ram->pvRH = result + biasHum;           // коррекция датчика влажности
       err = 0;
-      if(ram->pvRH>1000) ram->pvRH=1000; else if (ram->pvRH<0) ram->pvRH=0;
       status=1;
     }
-    else if(++err>3) {status=0; ram->pvRH = 888;} // НЕ верная CRC датчика влажности  errors |=0x10;
+    else if(++err>3) {status=0; ram->pvRH = 150; ram->errors |= 0x02;}
   }
-  else ram->pvRH = 999;
+  else {ram->pvRH = 200; ram->pvT[ds18b20_amount] = 1999; ram->errors |= 0x02;}
   return status;
 }
 //-----------------------------------------------

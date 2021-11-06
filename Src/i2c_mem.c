@@ -145,9 +145,9 @@ void eep_initial(uint16_t memAddr, uint8_t *data){
 	20, 0,    // data[10,11]; K[1] пропорциональный коэфф. = 20
 	0x84,0x03,// data[12,13]; Ti[0] интегральный коэфф. = 900
 	0x84,0x03,// data[14,15]; Ti[1] интегральный коэфф. = 900
-	0x64,0x00,// data[16,17]; minRun = 100
-	0x58,0x02,// data[18,19]; maxRun = 600
-	0xB8,0x0B,// data[20,21]; period = 3000
+	0xF4,0x01,// data[16,17]; minRun = 500    -> 0.5сек.
+	0x10,0x27,// data[18,19]; maxRun = 10000  -> 10 сек.
+	0x60,0xEA,// data[20,21]; period = 60000  -> 1 мин..
 	0x08,0x07,// data[22,23]; TimeOut время ожидания начала режима охлаждения = 1800
 	 0, 0,    // data[24,25]; EnergyMeter = 0
 	/* ---------------------- uint8_t ---------------------------------*/
@@ -163,7 +163,7 @@ void eep_initial(uint16_t memAddr, uint8_t *data){
 	  0,      // data[35]; air[1]    таймер проветривания air[1]-работа; если air[1]=0-ОТКЛЮЧЕНО
 	 40,      // data[36]; spCO2     опорные значения для управления концетрацией СО2 MAX; = 40 => 4000
 	  1,      // data[37]; identif сетевой номер прибора
-	  0,      // data[38]; state состояние камеры (ОТКЛ. ВКЛ. ОХЛАЖДЕНИЕ, и т.д.)
+	  0,      // data[38]; condition состояние камеры (ОТКЛ. ВКЛ. ОХЛАЖДЕНИЕ, и т.д.)
 	  0,      // data[39]; extendMode расширенный режим работы  0-СИРЕНА; 1-ВЕНТ. 2-Форс НАГР. 3-Форс ОХЛЖД. 4-Форс ОСУШ. 5-Дубляж увлажнения
 	  2,      // data[40]; relayMode релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
 	  0,      // data[41]; programm работа по программе
@@ -176,7 +176,7 @@ void eep_initial(uint16_t memAddr, uint8_t *data){
 	 70,      // data[48]; coolOff порог отключения вентилятора обдува сисмистора
 	 20,      // data[49]; Zonality порог зональности в камере = 20 => 0.2 гр.C
 	};
-	memcpy(data, source, EEP_DATA);
+	memcpy(data, source, EEP_DATA);   // копирование одного масива в другой
 	ret_stat = HAL_I2C_IsDeviceReady(&EEPROM_I2C_PORT, eepMem.eepAddr, 1, HAL_MAX_DELAY);
 	if(ret_stat) {dspl_error(ret_stat); return;}
 
@@ -203,27 +203,20 @@ uint8_t rtc_check(void){
 	/* ------------ display ------------------ */
 	sprintf(writing0, "Looking");
 	sprintf(writing1, "EEPROM");
-	mem_display(1000, (char*)writing0, (char*)writing1);
+	mem_display(500, (char*)writing0, (char*)writing1);
 	/* --------------------------------------- */
   
 	ret_stat = HAL_I2C_IsDeviceReady(&EEPROM_I2C_PORT, 0xD0, 1, HAL_MAX_DELAY); // [0xD0] — адрес устройства DS3231 real-time clock (RTC)
 	SSD1306_GotoXY(0,40);
 	if (ret_stat == HAL_OK){
 	SSD1306_Puts("24C32", &Font_11x18, SSD1306_COLOR_WHITE);
-  setChar(3,SIMBL_c); setChar(4,3); setChar(4,2);   // C32
   
 	eepMem.eepAddr = (0x57 << 1);  // HAL expects address to be shifted one bit to the left
 	eepMem.sizeAddr = I2C_MEMADD_SIZE_16BIT;
 	eepMem.pageSize = 32;          // AT24C32A или AT24C64A. The 32K/64K EEPROM is capable of 32-byte page writes
 	i = 1;
 	}
-	else {
-    SSD1306_Puts("24C04", &Font_11x18, SSD1306_COLOR_WHITE);
-    setChar(3,SIMBL_c); setChar(4,0); setChar(5,4); //C04
-  
-  }
-	SSD1306_UpdateScreen();
-	HAL_Delay(1000);
+	else SSD1306_Puts("24C04", &Font_11x18, SSD1306_COLOR_WHITE);
 	return i;
 }
 ///* ------------------- ВОСТАНОВЛЕНИЕ ИЗ КОПИИ ДАННЫХ ------------------------------------ */

@@ -29,7 +29,7 @@ int16_t checkPV(uint8_t cn, struct eeprom *t, struct rampv *ram){
  int16_t err;
  signed char d;
   d = t->alarm[cn];
-  if(cn && HIH5030){       // êàíàë ÂËÀÆÍÎÑÒÈ HIH-4000
+  if(cn && (HIH5030||AM2301)){       // êàíàë ÂËÀÆÍÎÑÒÈ HIH-4000
      if(ram->pvRH > 100) {ram->errors |= (cn+1); err = 0x7FF;}
      else err = t->spRH[1] - ram->pvRH;
      if(abs(err)<d)  ok1 = 1;               // âûøëè íà çàäàííîå çíà÷åíèå

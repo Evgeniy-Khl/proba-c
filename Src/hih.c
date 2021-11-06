@@ -9,7 +9,7 @@ extern const float A1, A2, A3;
 // для HIH-5030
 // Vout=(Vsupply)*(0.00636*(sensor RH) + 0.1515), typical at 25 грд.C
 // True RH = (Sensor RH)/(1.0546 - 0.00216*T), T in грд.C
-uint16_t ValDcToRH(int16_t Vadc, int16_t spRH, int16_t pvT0){
+uint16_t mVToRH(int16_t Vadc, int16_t spRH, int16_t pvT0){
 // Vadc бинарное значение ADC -> в десятичное значение относительной влажности (%)
  float tmpRH, tmpK;
  int16_t retVal;

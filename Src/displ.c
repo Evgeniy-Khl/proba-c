@@ -1,28 +1,30 @@
 #include "main.h"
 #include "global.h"   // здесь определена структура eeprom и структура rampv
 #include "displ.h"
+#include "proc.h"
 
-extern int8_t displmode, countsec;
+extern int8_t displmode, countsec, disableBeep;
 extern uint8_t ok0, ok1, psword, setup, servis;
-extern int16_t buf, current;
+extern int16_t buf, currAdc;
+
 //------- Светодиодная индикация --------------------------------------------------------- 
-void leddisplay(uint8_t state, uint8_t fuses){
+void ledOut(uint8_t condition, uint8_t fuses){
  uint8_t led, i;
-  led = portOut.value & 0x0F;               // 0b00001111
+  led = portOut.value & 0x0F;       // 0b00001111
   for(i=0;i<8;i++) LedOff(i);
   i=0;
-  do
-  {
-  	if (led & 1) LedOn(i);
-  	led >>= 1;
-  	i++;
-  } while (i<4);
-//  if(!(TURN_IN(portOut))) LedOn(x);   // лотки в верху
-  if(!(fuses&0x80)) LedOn(4);         // дверь открыта
-  if(!(fuses&0x01)) LedOn(5);         // останов вентилятора
-//  if(!(fuses&0x02)) LedOn(x);         // нет поворота лотков
-  if(state&0x10) LedOn(6);            // ГОРИЗОНТ УСТАНОВЛЕН
-  if(ALARM & countsec) LedOn(7);      // Led Alarm
+  while (i<4){
+  	if(led & 1) LedOn(i,1);
+  	led >>= 1; i++;
+  }
+  if(TURN) LedOn(4,1); else LedOn(5,1); // лотки вверху; лотки внизу
+  if(condition&0x01) LedOn(7,1);        // ВКЛЮЧЕН
+  led = fuses;
+  i=0;
+  while (i<8){
+  	if(led & 1) LedOn(i,2);
+  	led >>= 1; i++;
+  }
 }
 
 void displ_1(int16_t val, uint8_t comma){
@@ -119,7 +121,7 @@ void clr_3(void){
 	for (byte=6; byte<8; byte++) setChar(byte, SIMBL_BL);
 }
 
-void displ_3(int16_t val, int8_t mode, int8_t errors, int8_t warning){
+void displ_3(int16_t val, int8_t mode, int8_t blink){
 	uint8_t chr;
 	switch (mode){
 		case ERRORS:  chr=SIMBL_A;    break;  // A
@@ -134,7 +136,10 @@ void displ_3(int16_t val, int8_t mode, int8_t errors, int8_t warning){
 		case DISPL:   chr=SIMBL_d;    break;  // d
 		default:      chr=SIMBL_BL;
 	}
-  if(OVRHEAT&(countsec&1)||errors&0x7F||warning&0x7F){val=0; chr=SIMBL_BL;} // мигание дисплея
+  if(blink){
+    if(countsec&1){val=0; chr=SIMBL_BL;} // мигание дисплея
+    else if(disableBeep==0) beeper_ON(DURATION);
+  }
 	if (val<100){
 		if (val==-10){
 			setChar(6, SIMBL_Pe); // П
@@ -161,39 +166,38 @@ void displ_3(int16_t val, int8_t mode, int8_t errors, int8_t warning){
 
 
 void display(struct eeprom *t, struct rampv *ram){
- int8_t i, xx=0, yy=CONTROL;  
+ int8_t xx=0, yy=CONTROL, blink = 1;  
   switch (displmode){
     case 0: 
-       i=ram->fuses & 0x7F;// i>>=2; i&=0x1F;
-       displ_1(ram->pvT[0],COMMA); if(HIH5030) displ_2(ram->pvRH,NOCOMMA); else displ_2(ram->pvT[1],COMMA);
-       if(psword==10) xx=-10;
-       else if(psword>0) {xx=psword; yy=PASS;}
-       else if(OVRHEAT) xx=90;
-       else if(ram->errors&0x70) xx=66+((ram->errors&0x70)>>4);
-       else if(ram->errors&0x0F) xx=50+ram->errors&0x0F;
-       else if(i) {xx=i; yy=FUSES;}
-       else if(ram->warning&0x70) xx=36+((ram->warning&0x70)>>4);
-       else if(ram->warning&0x0F) xx=20+ram->warning&0x0F;
-       else if(t->state&0x01) xx=1;         // Режим "ИНКУБАЦИЯ"
-       else if(t->state&0x02) xx=2;         // Режим "подгототка к ОХЛАЖДЕНИЮ"
-       else if(t->state&0x04) xx=3;         // Режим "подгототка к ВКЛЮЧЕНИЮ"
-       else if((t->state&0x18)==0x08) xx=4; // ГОРИЗОНТ УСТАНОВЛЕН
-       else if(t->state&0x80) xx=5;         // Поворот лотков при ОТКЛЮЧЕННОЙ камере !!!
-       else if(VENTIL) xx=6;                // Проветривание
-       else if(CARBON) xx=7;                // Углекислый газ
-       else {xx=ram->cellID&0x1F; yy=0;}// ОТКЛЮЧЕН! показываем номер Блока "n1"
+       displ_1(ram->pvT[0],COMMA); if(HIH5030||AM2301) displ_2(ram->pvRH,NOCOMMA); else displ_2(ram->pvT[1],COMMA);
+       if(psword==10) {xx=-10;  blink=0;}                           // пароль введен
+       else if(psword>0) {xx=psword; yy=PASS; blink=0;}             // вводится пароль
+       else if(ram->errors&0x70) xx=66+((ram->errors&0x70)>>4);     // мигает двузначный код ошибки
+       else if(ram->errors&0x0F) xx=50+(ram->errors&0x0F);          // мигает двузначный код ошибки
+       else if(ram->warning&0x70) xx=40+((ram->warning&0x70)>>4);   // мигает двузначный код предупреждения
+       else if(ram->warning&0x0F) xx=24+(ram->warning&0x0F);        // мигает двузначный код предупреждения
+       else if(ram->fuses&0x70) {xx=16+((ram->fuses&0x70)>>4);}     // мигает двузначный код предохранителя
+       else if(ram->fuses&0x0F) {xx=(ram->fuses&0x0F); yy=FUSES;}   // мигает F и код предохранителя
+       else if(t->condition&0x01) {xx=1; yy=CONTROL; blink=0;}          // Режим "ИНКУБАЦИЯ"
+       else if(t->condition&0x02) {xx=2; yy=CONTROL; blink=0;}          // Режим "подгототка к ОХЛАЖДЕНИЮ"
+       else if(t->condition&0x04) {xx=3; yy=CONTROL; blink=0;}          // Режим "подгототка к ВКЛЮЧЕНИЮ"
+       else if((t->condition&0x18)==0x08) {xx=4; yy=CONTROL; blink=0;}  // ГОРИЗОНТ УСТАНОВЛЕН
+       else if(t->condition&0x80) {xx=5; yy=CONTROL; blink=0;}          // Поворот лотков при ОТКЛЮЧЕННОЙ камере !!!
+       else if(VENTIL) {xx=6; yy=CONTROL; blink=0;}                     // Проветривание
+//       else if(CARBON) {xx=7; yy=CONTROL; blink=0;}                     // Углекислый газ
+       else if(t->condition==0) {xx=ram->cellID&0x1F; yy=0; blink=0;}   // ОТКЛЮЧЕН! показываем номер Блока "n1"
+       else {xx=0; yy=SETUP;}                                           // неизвестный режим
        break;
     //---------------уставка t0;-------------------------уставка RH;---------------------уставка t1;-----------------"d1"---------
-    case 1: displ_1(t->spT[0],COMMA); if(HIH5030) displ_2(t->spRH[1],NOCOMMA); else displ_2(t->spT[1],COMMA); xx=displmode; yy=DISPL; break;
+    case 1: displ_1(t->spT[0],COMMA); if(HIH5030||AM2301) displ_2(t->spRH[1],NOCOMMA); else displ_2(t->spT[1],COMMA); xx=displmode; yy=DISPL; blink=0; break;
     //-------------------t1;--------------------t2;------------------"d2"---------
-    case 2: displ_1(ram->pvT[1],COMMA); displ_2(ram->pvT[2],COMMA); xx=displmode; yy=DISPL; break;
+    case 2: displ_1(ram->pvT[1],COMMA); displ_2(ram->pvT[2],COMMA); xx=displmode; yy=DISPL; blink=0; break;
     //--------------- CO2 ------------------------ flap ----------------------"d3"------------------
-    case 3: displ_1(ram->pvCO2[0]/10,NOCOMMA); displ_2(ram->pvFlap,NOCOMMA); xx=displmode; yy=DISPL; break;
+    case 3: displ_1(ram->pvCO2[0]/10,NOCOMMA); displ_2(ram->pvFlap,NOCOMMA); xx=displmode; yy=DISPL; blink=0; break;
   }
   if(ok0>1) if(countsec&1) clr_1();
   if(ok1>1) if(countsec&1) clr_2();
-  displ_3(xx,yy,ram->errors,ram->warning);
-  leddisplay(t->state, ram->fuses);                     // Светодиодная индикация
+  displ_3(xx,yy,blink);
   SendDataTM1638();
 }
 
@@ -201,19 +205,19 @@ void display_setup(struct eeprom *t){
 	if(buf>999) buf=999; else if(buf<-99) buf=-99;
 	switch (setup){
 		case 1: displ_1(buf,COMMA); clr_2(); break;                    // У1
-		case 2: if(HIH5030){clr_1(); displ_2(buf,NOCOMMA);} else {displ_1(buf,COMMA); clr_2();} break;// У2
+		case 2: if(HIH5030||AM2301){clr_1(); displ_2(buf,NOCOMMA);} else {displ_1(buf,COMMA); clr_2();} break;// У2
 		case 3: if(buf<0) buf=0; displ_1(buf,NOCOMMA); clr_2(); break; // У3 время отключенного состояния
 		case 4: if(buf<0) buf=0; displ_1(buf,NOCOMMA); clr_2(); break; // У4 время включенного состояния (если не 0 то это секунды)
 		case 5: displ_1(buf,COMMA); clr_2(); break;                    // У5 тревога по каналу 1
-		case 6: if(HIH5030){clr_1(); displ_2(buf,NOCOMMA);} else {displ_1(buf,COMMA); clr_2();} break;// У6 тревога по каналу 2
+		case 6: if(HIH5030||AM2301){clr_1(); displ_2(buf,NOCOMMA);} else {displ_1(buf,COMMA); clr_2();} break;// У6 тревога по каналу 2
 		case 7: displ_1(buf,COMMA); clr_2(); break;                    // У7 смещение для ВКЛ. вспомогательного канала 1
 		case 8: displ_1(buf,COMMA); clr_2(); break;                    // У8 смещение для ОТКЛ. вспомогательного канала 1
 		case 9:                                                        // У9 смещение для ВКЛ. вспомогательного канала 2
-			if(t->extendMode==4){clr_1(); if(HIH5030) displ_2(buf,NOCOMMA); else displ_2(buf,COMMA);}
+			if(t->extendMode==4){clr_1(); if(HIH5030||AM2301) displ_2(buf,NOCOMMA); else displ_2(buf,COMMA);}
 			else {displ_1(buf,COMMA); clr_2();}
 			break;
 		case 10:                                                       // У10 смещение для ОТКЛ. вспомогательного канала 2
-			if(t->extendMode==4){clr_1(); if(HIH5030) displ_2(buf,NOCOMMA); else displ_2(buf,COMMA);}
+			if(t->extendMode==4){clr_1(); if(HIH5030||AM2301) displ_2(buf,NOCOMMA); else displ_2(buf,COMMA);}
 			else {displ_1(buf,COMMA); clr_2();}
 			break;
 
@@ -225,21 +229,21 @@ void display_setup(struct eeprom *t){
 		case 27: clr_1(); displ_2(buf,NOCOMMA); break;                 // П11 гистерезис
 		default: if(buf<0) buf=0; displ_1(buf,NOCOMMA); clr_2();
 	}
-	if (setup > 25) displ_3(setup-25,SETUP2,0,0);
-  else if (setup > 15) displ_3(setup-16,VERS,0,0);
-  else displ_3(setup,SETUP,0,0);
+	if (setup > 25) displ_3(setup-25,SETUP2,0);
+  else if (setup > 15) displ_3(setup-16,VERS,0);
+  else displ_3(setup,SETUP,0);
 	SendDataTM1638();
 }
 
 void display_servis(struct rampv *ram){
 	switch (servis){
-		case 1: displ_1(current,COMMA); clr_2(); break;     // C1 -> НАГРЕВ; Сила тока
+		case 1: displ_1(currAdc,COMMA); clr_2(); break;     // C1 -> НАГРЕВ; Сила тока
 		case 2: displ_1(ram->pvRH,NOCOMMA); /*displ_2(read_adc(3),NOCOMMA);*/ break;   // C2 -> ВЛАЖНОСТЬ; значение АЦП
 		case 3: displ_1(ram->pvCO2[0],NOCOMMA); displ_2(ram->pvFlap,NOCOMMA); break;      // C3 -> ЗАСЛОНКА; СО2, СЕРВОПРИВОД град.
 		case 8: displ_1(buf,COMMA); clr_2(); break;                           // C8 -> Уставка форсированного нагрева
 		default: displ_1(buf,NOCOMMA); clr_2();
 	}
-	displ_3(servis,SERVIS,0,0);
+	displ_3(servis,SERVIS,0);
 	SendDataTM1638();
 }
 

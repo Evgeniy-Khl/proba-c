@@ -441,11 +441,6 @@
               <FilePath>..\Src\keypad.c</FilePath>
             </File>
             <File>
-              <FileName>operation.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\operation.c</FilePath>
-            </File>
-            <File>
               <FileName>proc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Src\proc.c</FilePath>
@@ -494,6 +489,11 @@
               <FileName>am2301.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Src\am2301.c</FilePath>
+            </File>
+            <File>
+              <FileName>output.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\output.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -32,7 +32,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define VREF_mlV   	3200
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -56,7 +56,6 @@ I2C_HandleTypeDef hi2c2;
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
 
-TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
@@ -69,7 +68,7 @@ volatile uint8_t flag = 0;             // флаг окончания преобразования АЦП
 union Byte portOut;
 union Byte portFlag;
 
-extern uint8_t ds18b20_amount, beepOn, disableBeep, topOwner, topUser, botUser, ok0, ok1, psword, pvAeration;
+extern uint8_t ds18b20_amount, disableBeep, topOwner, topUser, botUser, ok0, ok1, psword, pvAeration;
 extern int16_t buf;
 
 extern struct {
@@ -88,17 +87,16 @@ extern struct {
 } eepMem;
 
 // -------- ISIDA ------
-uint8_t show=0, keynum=0, getButton=0, countmin, modules=0;
-uint8_t pwTriac0, pwTriac1, valRun, setup, servis, waitset, waitkey=WAITCOUNT;
-int8_t countsec=0, displmode, ext[4];
+uint8_t show=0, keynum=0, getButton=0, countmin, modules=0, setup, servis, waitset, waitkey=WAITCOUNT;
+int8_t countsec=-15, displmode;
 /*
 ext[0] модуль Холла
 ext[1] модуль ГОРИЗОНТА
 ext[2] модуль СО2
 ext[3] модуль заслонок
 */
-int16_t current, currAdc, humAdc, statPw[2]; 
-uint32_t summCurr=0;
+int16_t pwTriac0, pwTriac1, pulsPeriod, currAdc, humAdc, beepOn, alarmErr, statPw[2]; 
+
 /* ----------------------------- BEGIN point value -------------------------------------- */
 union pointvalue{
   uint8_t pvdata[30];
@@ -110,13 +108,16 @@ union pointvalue{
     uint8_t pvTimer;              // 1 байт ind=18        значение таймера
     uint8_t pvTmrCount;           // 1 байт ind=19        значение счетчика проходов поворота
     uint8_t pvFlap;               // 1 байт ind=20        положение заслонки 
-    uint8_t power, fuses;         // 2 байт ind=21;ind=22 мощьность подаваемая на тены и короткие замыкания
+    int8_t power;                 // 1 байт ind=21        мощность подаваемая на тены
+    uint8_t fuses;                // 1 байт ind=22        короткие замыкания 
     uint8_t errors, warning;      // 2 байт ind=23;ind=24 ошибки и предупреждения
     uint8_t cost0, cost1;         // 2 байт ind=25;ind=26 затраты ресурсов
     uint8_t date, hours;          // 2 байт ind=27;ind=28 счетчики суток и часов
     uint8_t other0;               // 1 байт ind=29        прочее
   } pv;// ------------------ ИТОГО 30 bytes -------------------------------
 } upv;
+
+uint32_t summCurr=0;
 
 /* ----------------------------- BEGIN EEPROM ------------------------------------------- */
 union serialdata{
@@ -138,7 +139,7 @@ union serialdata{
     uint8_t air[2];     // 2 байт ind=34;ind=35 таймер проветривания air[0]-пауза; air[1]-работа; если air[1]=0-ОТКЛЮЧЕНО
     uint8_t spCO2;      // 1 байт ind=36;       опорное значение для управления концетрацией СО2
     uint8_t identif;    // 1 байт ind=37;       сетевой номер прибора
-    uint8_t state;      // 1 байт ind=38;       состояние камеры (ОТКЛ. ВКЛ. ОХЛАЖДЕНИЕ, и т.д.)
+    uint8_t condition;  // 1 байт ind=38;       состояние камеры (ОТКЛ. ВКЛ. ОХЛАЖДЕНИЕ, и т.д.)
     uint8_t extendMode; // 1 байт ind=39;       расширенный режим работы  0-СИРЕНА; 1-ВЕНТ. 2-Форс НАГР. 3-Форс ОХЛЖД. 4-Форс ОСУШ. 5-Дубляж увлажнения
     uint8_t relayMode;  // 1 байт ind=40;       релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
     uint8_t programm;   // 1 байт ind=41;       работа по программе
@@ -154,33 +155,29 @@ union serialdata{
 } eep;
 
 /* ------------------------------ END EEPROM -------------------------------------------- */
+#include "output.h"
+#include "displ.h"
 void dsplMss(uint8_t *data, struct rampv *ram);
 void temperature_check(struct rampv *ram);
 void am2301_port_init(void);
 uint8_t am2301_Start(void);
 uint8_t am2301_Read(struct rampv *ram, uint8_t biasHum);
+void display(struct eeprom *t, struct rampv *ram);
+void display_setup(struct eeprom *t);
 void display_servis(struct rampv *ram);
+void displ_3(int16_t val, int8_t mode, int8_t blink);
 void rotate_trays(uint8_t timer0, uint8_t timer1, struct rampv *ram);
-uint16_t powerCurr(uint16_t curr, uint8_t KoffCurr, struct rampv *ram);
 uint8_t sethorizon(uint8_t timer0, uint8_t TurnTime, struct rampv *ram);
 int8_t chkflap(uint8_t cmd, uint8_t *pvF);
 uint8_t readCO2(struct rampv *ram);
 //------
-void display(struct eeprom *t, struct rampv *ram);
-void display_setup(struct eeprom *t);
 void saveservis(struct eeprom *t);
 void saveset(struct eeprom *t);
 uint8_t reset(uint16_t memAddr, uint8_t *data);
-void displ_3(int16_t val, int8_t mode);
-//void checkkey(struct eeprom *t, int16_t pvT0);
-void pushkey(void);
-void heat_wet(struct eeprom *t);
-void extra_1(struct eeprom *t);
-void extra_2(struct eeprom *t);
+void checkkey(struct eeprom *t, int16_t pvT0);
+//void pushkey(void);
 void chkdoor(struct eeprom *t, struct rampv *ram);
-void alarm(struct eeprom *t, int16_t pvT0);
 void init(struct eeprom *t, struct rampv *ram);
-void leddisplay(uint8_t state);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -190,7 +187,6 @@ static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_SPI2_Init(void);
@@ -221,6 +217,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  sysTick_Init();   // 1mS
   bluetoothData.TXBuffer[0] = 0x0D;  bluetoothData.TXBuffer[1] = 0x0A;  // "\r\n"
   eepMem.eepAddr = (0x50 << 1); // HAL expects address to be shifted one bit to the left
   eepMem.sizeAddr = I2C_MEMADD_SIZE_8BIT;
@@ -246,7 +243,6 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C2_Init();
   MX_ADC1_Init();
-  MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_SPI2_Init();
@@ -255,7 +251,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim4);	/* ------  таймер 1Гц.   период 1000 мс.  ----*/
 	HAL_TIM_Base_Start_IT(&htim3);	/* ------  таймер 6Гц.   период 166 мс.  ----*/
-	HAL_TIM_Base_Start_IT(&htim2);	/* ------  таймер 200Гцю период 5 мс.  ----*/
   HAL_ADCEx_Calibration_Start(&hadc1);            // калибровкa АЦП
   HAL_UART_Receive_IT(&huart1,(uint8_t*)bluetoothData.RXBuffer,2);
 //  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);  // LED Off
@@ -267,17 +262,16 @@ int main(void)
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&adc, 2);  // стартуем АЦП
   while(flag==0);
   flag = 0;
-  currAdc = adc[0]; humAdc = adc[1]*VREF_mlV/4095;
+  currAdc = adc[0]; humAdc = adc[1];
   adc[0] = 0; adc[1] = 0;
 
   for(int8_t i=0;i<8;i++) {setChar(i,SIMBL_BL); PointOn(i);}// BL+точки
-//  setChar(0,currAdc/1000); setChar(1,currAdc/100); setChar(2,currAdc/10); setChar(3,currAdc%10);
   SendDataTM1638();
 	SendCmdTM1638(0x8F);       // Transmit the display control command to set maximum brightness (8FH)
-//  dsplMss(eep.data);
-//  HAL_Delay(5000);
+  
   eep_read(0x0000, eep.data);
   if (eep.sp.identif == 0 || eep.sp.identif > 30) eep_initial(0x0000, eep.data);
+  
   bluetoothName();
   init(&eep.sp, &upv.pv);   // инициализация
   temperature_check(&upv.pv);
@@ -291,88 +285,128 @@ int main(void)
   //----------------------------------- Теперь будем опрашивать три канала на одном АЦП с помощью DMA… -------------------------------------------
 
   /* ------------------------------------------- BEGIN таймер TIM3 6 Гц. ----------------------------------------------------------------------- */
-//      if (getButton>waitkey/4) {checkkey(&eep.sp, upv.pv.pvT[0]); /*HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&adc, 2);*/}
-      if (getButton>waitkey/4) pushkey();
+      if (getButton>waitkey/4) checkkey(&eep.sp, upv.pv.pvT[0]);  // 
+//      if (getButton>waitkey/4) pushkey();
   /* -------------------------------------------- END таймер TIM3 6 Гц. ------------------------------------------------------------------------ */
   /* ------------------------------------------- BEGIN таймер TIM4 1 Гц. ----------------------------------------------------------------------- */
-      if (CHECK){   // ------- новая секунда
-        CHECK=0; ALARM=0; upv.pv.errors=0; upv.pv.warning=0; countsec++; upv.pv.pvTmrCount = countsec;
+      if(CHECK){   // ------- новая секунда --------------------------------------------------------------
+        CHECK=0; DISPLAY=1; ALARM=0; upv.pv.errors=0; upv.pv.warning=0; upv.pv.pvTmrCount = countsec;
         HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&adc, 2);
         while(flag==0);
         flag = 0;
-        currAdc = adc[0];               // Channel 8  currAdc
-        humAdc  = adc[1]*VREF_mlV/4095; // Channel 9  humAdc
+        currAdc = adcTomV(adc[0]);      // Channel 8 (Port B0) в мВ.
+        humAdc  = adcTomV(adc[1]);      // Channel (Port B1) 9 в мВ.
         adc[0] = 0; adc[1] = 0;
 // ----------- ************************************** --------------------------------------------------
         temperature_check(&upv.pv);
         if(AM2301) am2301_Read(&upv.pv, eep.sp.spRH[0]);
-//        else if(HIH5030){ 
-//           if(humAdc > 500){                             // humAdc => 500 mV для RH=0%
-//              upv.pv.pvRH = ValDcToRH(humAdc, eep.sp.spRH[0], upv.pv.pvT[0]);  // перевод в десятичное значение относительной влажности (%)
-//           }
-//           else upv.pv.pvRH = 255;
-//        }
+        else if(HIH5030){ 
+           if(humAdc > 500){                          // humAdc => 500 mV для RH=0%
+              upv.pv.pvRH = mVToRH(humAdc, eep.sp.spRH[0], upv.pv.pvT[0]);  // перевод в десятичное значение относительной влажности (%)
+           }
+           else upv.pv.pvRH = 255;
+        }
   //---------------------- Состояние дверей; "подгототка к ОХЛАЖДЕНИЮ"; "подгототка к ВКЛЮЧЕНИЮ" --------------------------------------------------
         chkdoor(&eep.sp, &upv.pv);
-        if((eep.sp.state&0x18)==0x08) eep.sp.state|= sethorizon(eep.sp.timer[0], eep.sp.TurnTime, &upv.pv);  // Установка в горизонтальное положение
+        if((eep.sp.condition&0x18)==0x08) eep.sp.condition|= sethorizon(eep.sp.timer[0], eep.sp.TurnTime, &upv.pv);  // Установка в горизонтальное положение
   //------------------------------------------ Опрос модулей расширения ---------------------------------------------------------------------------
         if(modules&1) {
-          tmpbyte = chkcooler(eep.sp.state);
-          if(tmpbyte<0) upv.pv.errors |= 0x40; // Отказ модуля Холла
-          ext[0] = tmpbyte;
-        } else ext[0] = -1;  // НЕПОДКЛЮЧЕН !
+          tmpbyte = chkcooler(eep.sp.condition);
+          if(tmpbyte<0) upv.pv.errors |= 0x40;        // Отказ модуля Холла
+          else if(tmpbyte>0) upv.pv.warning |= 0x20;  // ОСТАНОВ тихоходного вентилятора
+        }
         if(modules&2) {
-          tmpbyte = chkhorizon(eep.sp.state);
+          tmpbyte = chkhorizon(eep.sp.condition);
           if(tmpbyte<0) upv.pv.errors |= 0x40; // Отказ модуля ГОРИЗОНТ
-          ext[1] = tmpbyte;
-        } else ext[1] = -1;  // НЕПОДКЛЮЧЕН !
+          else if(tmpbyte>0) upv.pv.warning |= 0x40;  // НЕТ ПОВОРОТА лотков
+        }
         if(modules&4) {
           tmpbyte = readCO2(&upv.pv);
-          if(tmpbyte<0) upv.pv.errors |= 0x20; // Отказ модуля CO2
-          ext[2] = tmpbyte;
-        } else ext[2] = -1;  // НЕПОДКЛЮЧЕН !
+          if(tmpbyte<0) upv.pv.errors |= 0x20;        // Отказ модуля CO2
+        }
         if(modules&8) {
           tmpbyte = chkflap(0,&upv.pv.pvFlap);
-          ext[3] = tmpbyte;
-          if(tmpbyte<0) upv.pv.errors |= 0x20; // Отказ модуля CO2
-        } else ext[3] = -1;  // НЕПОДКЛЮЧЕН !
+          if(tmpbyte<0) upv.pv.errors |= 0x20;        // Отказ модуля заслонок
+        }
   //------------------------------------------ КАМЕРА ВКЛЮЧЕНА в работу ---------------------------------------------------------------------------
-        if (eep.sp.state&1){
-            heat_wet(&eep.sp);  // (Симистор; Симистор)
-            extra_1(&eep.sp);
-            extra_2(&eep.sp);
+        if (eep.sp.condition&1){
+          // --------------------------------------- НАГРЕВАТЕЛЬ -----------------------------------------------------------------
+          if(HAL_GPIO_ReadPin(OVERHEAT_GPIO_Port, OVERHEAT_Pin)==GPIO_PIN_RESET) upv.pv.errors |= 0x10;  // ПЕРЕГРЕВ СИМИСТОРА !!!
+          else if((upv.pv.warning&0x20)==0){    // НЕТ ОСТАНОВА тихоходного вентилятора !!!
+            if(upv.pv.pvT[0] < 850){
+              int16_t err = eep.sp.spT[0] - upv.pv.pvT[0];
+              if(heatCondition(err, eep.sp.alarm[0], eep.sp.extOn[0])) upv.pv.warning |= 0x01;
+              pwTriac0 = heater(err, &eep.sp);
+              if(pwTriac0) HEATER = 1;  // HEATER On
+            }
+            else upv.pv.errors |= 0x01;   // ОШИБКА ДАТЧИКА температуры !!!
+          }
+          upv.pv.power = pwTriac0 / 10;
+          if(upv.pv.power > 100) upv.pv.power = 100; else if(upv.pv.power < 0) upv.pv.power = 0;
+          // --------------------------------------- УВЛАЖНИТЕЛЬ -----------------------------------------------------------------
+          if(ok0&1){  // отключение УВЛАЖНЕНИЯ при РАЗОГРЕВЕ и ПЕРЕОХЛАЖДЕНИИ
+            if(HIH5030||AM2301){  // подключен электронный датчик влажности
+              int16_t err = eep.sp.spRH[1] - upv.pv.pvRH;
+              if(humCondition(err, eep.sp.alarm[1], eep.sp.extOn[1])) upv.pv.warning |= 0x02;
+              pwTriac1 = humidifier(err, &eep.sp);
+              if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
+            }
+            else if(upv.pv.pvT[1] < 850){
+              int16_t err = eep.sp.spT[1] - upv.pv.pvT[1];
+              if(humCondition(err, eep.sp.alarm[1], eep.sp.extOn[1])) upv.pv.warning |= 0x02;
+              pwTriac1 = humidifier(err, &eep.sp);
+              if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
+            }
+            else upv.pv.errors |= 0x02;   // ОШИБКА ДАТЧИКА влажности !!!
+          }
+          // --------------------------------------- ОХЛАЖДЕНИЕ -----------------------------------------------------------------
+          if(upv.pv.warning&0x20) tmpbyte = ON;     // ОСТАНОВ тихоходного вентилятора
+          else {
+            if(upv.pv.pvT[0] < 850){
+              int16_t err = eep.sp.spT[0] - upv.pv.pvT[0];
+              tmpbyte = RelayNeg(err, 0, eep.sp.extOn[0],eep.sp.extOff[0]);// доп. канал -> охлаждение
+            }
+            else upv.pv.errors |= 0x01;             // ОШИБКА ДАТЧИКА температуры !!!
+          }
+          if(upv.pv.fuses&0x02) tmpbyte = OFF;      // ПРЕДОХРАНИТЕЛЬ доп. канал №1
+          switch (tmpbyte){
+            case ON:  FLAP = ON;  upv.pv.pvFlap = FLAPOPEN;  if(modules&8) chkflap(SETFLAP,  &upv.pv.pvFlap); break;// установка заслонки
+            case OFF: FLAP = OFF; upv.pv.pvFlap = FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &upv.pv.pvFlap); break;// установка заслонки; сброс флага запрещения принудительной подачи воды
+          }
+          // --------------------------------------- ВСПОМОГАТЕЛЬНЫЙ -----------------------------------------------------------------
+          extra_2(&eep.sp, &upv.pv);
   //---------------------------------------- ЗОНАЛЬНОСТЬ температуры камеры -----------------------------------------------------------------------
             if (ok0){
-                if (HIH5030) {if(ds18b20_amount>1) {if(abs(upv.pv.pvT[0]-upv.pv.pvT[1])>eep.sp.Zonality) upv.pv.warning |=0x08;}} // Большой перепад температур.
+                if(HIH5030||AM2301) {if(ds18b20_amount>1) {if(abs(upv.pv.pvT[0]-upv.pv.pvT[1])>eep.sp.Zonality) upv.pv.warning |=0x08;}} // Большой перепад температур.
                 else     {if(ds18b20_amount>2) {if(abs(upv.pv.pvT[0]-upv.pv.pvT[2])>eep.sp.Zonality) upv.pv.warning |=0x08;}};// Большой перепад температур.
             }
-            if(!HIH5030 && (upv.pv.pvT[1]-upv.pv.pvT[0])>20) {upv.pv.warning =0x10; pwTriac0 = 50;}					// Неправильная конфигурация датчиков !!
+            if(!(HIH5030||AM2301) && (upv.pv.pvT[1]-upv.pv.pvT[0])>20) {upv.pv.warning =0x10; pwTriac0 = 500;}					// Неправильная конфигурация датчиков !!
   //--------------------------------------- ПОВОРОТ ЛОТКОВ Статистика камеры ----------------------------------------------------------------------
-            current = ratioCurr(currAdc, eep.sp.KoffCurr);      // сила тока симистора
-//            summCurr += powerCurr(current, eep.sp.KoffCurr);  // суммирование тока симистора
-            alarm(&eep.sp, upv.pv.pvT[0]);                      // АНАЛИЗ АВАРИЙНОЙ СИТУАЦИИ (важно в этом месте после анализа мощности)
+            if(eep.sp.KoffCurr){
+              currAdc *= eep.sp.KoffCurr; currAdc /= 100;                 // конверсия mV в mA
+              summCurr += currAdc;                                        // суммирование тока симистора каждую секунду
+              if(upv.pv.power==100 && countsec>=0 && currAdc<1000) upv.pv.errors|=0x08;  // если ток < 1,0 А. -> НЕИСПРАВНА цепь НАГРЕВАТЕЛЯ 
+            }
+            // АНАЛИЗ АВАРИЙНОЙ СИТУАЦИИ (важно в этом месте после анализа мощности)
+            int16_t newErr = abs(eep.sp.spT[0]-upv.pv.pvT[0]);
+            if((upv.pv.warning & 3)&&(newErr-alarmErr)>2) disableBeep=0;  // если при блокироке сирены продолжает увеличиватся ошибка сброс блокировки
             if(countsec>59){
                 countsec=0; if (disableBeep) disableBeep--;
-                if(!(eep.sp.state&0x18)) rotate_trays(eep.sp.timer[0], eep.sp.timer[1], &upv.pv);  // выполняется только если // Камера ВКЛ. // Поворот лотков при ОТКЛЮЧЕННОЙ камере
-                if(upv.pv.pvCO2[0]>0) CO2_check(eep.sp.spCO2, eep.sp.spCO2, upv.pv.pvCO2[0]); // Проверка концентрации СО2
-                else if(eep.sp.air[1]>0) aeration_check(eep.sp.air[0], eep.sp.air[1]);    // Проветривание выполняется только если air[1]>0
-                statPw[0]/=60; statPw[1]/=60;    // расчет затрат ресурсов
-                upv.pv.cost0=statF2(0, statPw[1]); upv.pv.cost1=statF2(1, statPw[1]); // расчет затрат ресурсов
-                statPw[0]=0; statPw[1]=0;        // расчет затрат ресурсов
-                if(++countmin>59){
-                  countmin=0; 
-                  if (++upv.pv.hours>23) {upv.pv.hours = 0; upv.pv.date++;}
-                  summCurr*=11; 
-                  eep.sp.EnergyMeter+=(summCurr/180000); 
-                  summCurr=0;
-                }// (summCurr*220)/(3600*1000)
+              if(!(eep.sp.condition&0x18)) rotate_trays(eep.sp.timer[0], eep.sp.timer[1], &upv.pv);  // выполняется только если // Камера ВКЛ. // Поворот лотков при ОТКЛЮЧЕННОЙ камере
+//              if(upv.pv.pvCO2[0]>0) CO2_check(eep.sp.spCO2, eep.sp.spCO2, upv.pv.pvCO2[0]); // Проверка концентрации СО2
+              else if(eep.sp.air[1]>0) aeration_check(eep.sp.air[0], eep.sp.air[1]);    // Проветривание выполняется только если air[1]>0
+              statPw[0]/=60; statPw[1]/=60;     // расчет затрат ресурсов
+              upv.pv.cost0=statF2(0, statPw[1]); upv.pv.cost1=statF2(1, statPw[1]); // расчет затрат ресурсов
+              statPw[0]=0; statPw[1]=0;         // расчет затрат ресурсов
+              summCurr *= 220;
+              eep.sp.EnergyMeter += (summCurr/60);// расход эл.энергии за минуту
+              summCurr = 0;
             } 
         }
   //---------------------------------------------- КАМЕРА ОТКЛЮЧЕНА -------------------------------------------------------------------------------
-        else if((eep.sp.state&7)==0){
+        else if((eep.sp.condition&7)==0){
 //            if(eep.sp.relayMode == 4) valRun = 0;                       // ОТКЛЮЧИТЬ импульсное управление увлажнителем
             if(servis){                                                   // включен СЕРВИСНЫЙ режим
-              current = ratioCurr(currAdc, eep.sp.KoffCurr);              // сила тока симистора
               switch (servis){
                  case 1: pwTriac0=255; portOut.value = 0x01; break;       // НАГРЕВАТЕЛЬ
                  case 2: pwTriac1=255; portOut.value = 0x02; break;       // УВЛАЖНИТЕЛЬ
@@ -382,14 +416,12 @@ int main(void)
                  default: portOut.value = 0; upv.pv.pvFlap=FLAPCLOSE;
                           if(modules&8) chkflap(DATAREAD, &upv.pv.pvFlap);// ВСЕ ОТКЛЮЧЕНО, СЕРВОПРИВОД 0грд.
               }
-              leddisplay(eep.sp.state); SendDataTM1638();                 // Светодиодная индикация
             }
             else {
-               upv.pv.power=OFF; portOut.value = OFF; upv.pv.pvFlap=FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &upv.pv.pvFlap); VENTIL = OFF; CARBON = OFF;
-               current=ratioCurr(currAdc, eep.sp.KoffCurr);       // сила тока симистора когда блок ОТКЛЮЧЕН !
-               if(current>10){upv.pv.errors|=0x04; beepOn=DURATION*2;}   // если сила тока > 1А ПРОБОЙ СИМИСТОРА!
+               upv.pv.power=OFF; portOut.value = OFF; upv.pv.pvFlap=FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &upv.pv.pvFlap); VENTIL = OFF;// CARBON = OFF;
+               if(currAdc>1000){upv.pv.errors|=0x04;}   // если сила тока > 1000 mV ПРОБОЙ СИМИСТОРА!
   //--------------------------------------- Поворот лотков при ОТКЛЮЧЕННОЙ камере !!! ----------------------------------------------------------
-               if(countsec>59){countsec=0; if(eep.sp.state&0x80) rotate_trays(eep.sp.timer[0], eep.sp.timer[1], &upv.pv);}
+               if(countsec>59){countsec=0; if(eep.sp.condition&0x80) rotate_trays(eep.sp.timer[0], eep.sp.timer[1], &upv.pv);}
   //--------------------------------------------------------------------------------------------------------------------------------------------
             }
         }
@@ -397,10 +429,6 @@ int main(void)
           if(--waitset==0) {if(EEPSAVE) eep_write(0x0000, eep.data); servis=0;setup=0;displmode=0;psword=0;buf=0;topUser=TOPUSER;botUser=BOTUSER;}// возвращяемся к основному экрану, сброс пароля 
         }
         if(TURN && eep.sp.timer[1]){if(--upv.pv.pvTimer==0) { upv.pv.pvTimer=eep.sp.timer[0]; TURN = OFF;}} // только при sp[1].timer>0 -> асиметричный режим
-        /* ---------------- ИНДИКАЦИЯ ------------------------------------------------- */
-        if(setup) display_setup(&eep.sp);
-        else if(servis) display_servis(&upv.pv);
-        else display(&eep.sp, &upv.pv);
         // -------------------------------------------------------------------------------------------
         if(HAL_GPIO_ReadPin(KEY_S2_GPIO_Port, KEY_S2_Pin)==GPIO_PIN_RESET){if (++show > 4) show = 0;}
         dsplMss(eep.data, &upv.pv);
@@ -409,12 +437,32 @@ int main(void)
         HAL_UART_Transmit(&huart1,(uint8_t*)eep.data,50,0x1000);
         HAL_UART_Transmit(&huart1,(uint8_t*)bluetoothData.TXBuffer,2,0x1000);
       }
+      /* ---------------- ИНДИКАЦИЯ ------------------------------------------------- */
+      if(DISPLAY){
+        if(setup) display_setup(&eep.sp);
+        else if(servis) display_servis(&upv.pv);
+        else display(&eep.sp, &upv.pv);
+        ledOut(eep.sp.condition, upv.pv.fuses); SendDataTM1638(); set_Output();
+      }
   /* -------------------------------------------- END таймер TIM4 1 Гц. ------------------------------------------------------------------------ */
 //      if(rx_buffer_overflow) check_command();      // если установлен флаг - "комманда компьютера"
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	}
+      if(pwTriac0 < 0) {pwTriac0=0; HEATER = 0; LEDOFF = 1;}  // HEATER Off
+      if(pwTriac1 < 0) {pwTriac1=0; HUMIDI = 0; LEDOFF = 1;}  // HUMIDIFIER Off
+      if(pulsPeriod < 0) {pwTriac1=0; HUMIDI = 0; LEDOFF = 1;}  // HUMIDIFIER Off
+      if(LEDOFF) {LEDOFF = 0; ledOut(eep.sp.condition, upv.pv.fuses); SendDataTM1638(); set_Output();}
+      if(beepOn < 0) {beepOn=0; HAL_GPIO_WritePin(Beeper_GPIO_Port, Beeper_Pin, GPIO_PIN_RESET);}  // Beeper Off
+      if(bluetoothData.ind == 0)  bluetoothData.timeOut=0; 
+      else if(bluetoothData.timeOut >= 10) {
+        // ошибка таймаута больше 10 mS.
+        HAL_UART_AbortReceive_IT(&huart1); // остановка приема
+        bluetoothData.ind = 0; // признак ожидание первого байта
+        bluetoothData.timeOut = 0;
+        HAL_UART_Receive_IT(&huart1,(uint8_t*)bluetoothData.RXBuffer,2); // запуск приема
+      }
+	} // ---------------------------------- END while (1) ------------------------------------------------------------------------------------------
   /* USER CODE END 3 */
 }
 
@@ -660,51 +708,6 @@ static void MX_SPI2_Init(void)
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
-
-  /* USER CODE BEGIN TIM2_Init 0 */
-
-  /* USER CODE END TIM2_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM2_Init 1 */
-
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 1499;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 239;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
-
-}
-
-/**
   * @brief TIM3 Initialization Function
   * @param None
   * @retval None
@@ -893,7 +896,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = OUT_RCK_Pin|DISPL_STB_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Bluetooth_STATE_Pin */
@@ -905,8 +908,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : DE485_Pin */
   GPIO_InitStruct.Pin = DE485_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(DE485_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : AM2301_Pin */

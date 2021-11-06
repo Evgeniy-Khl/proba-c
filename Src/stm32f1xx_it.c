@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "global.h"   // здесь определена структура eeprom и структура rampv
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,7 +49,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-
+void mem_display(uint16_t wait, char* str0, char* str1);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -58,12 +59,13 @@
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_adc1;
-extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim4;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
-extern uint8_t getButton, pwTriac0, pwTriac1;
+extern uint8_t getButton, countsec;
+extern int16_t beepOn, pwTriac0, pwTriac1, pulsPeriod;
+extern char writing0[9], writing1[9];
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -88,7 +90,11 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-
+  sprintf(writing0, "Hard");//"Starting the test - writing to the memory...\r\n"
+	sprintf(writing1, "Fault");
+	mem_display(1000, (char*)writing0, (char*)writing1);
+  for(uint8_t i=0;i<8;i++) {setChar(i,SIMBL_E); PointOn(i);}  // only decimal points is on
+  SendDataTM1638();
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
@@ -187,16 +193,11 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-  if( bluetoothData.ind == 0 )  bluetoothData.timeOut=0; 
-  else {
-    if( ++bluetoothData.timeOut >= 10 ) {
-        // ошибка таймаута
-        HAL_UART_AbortReceive_IT(&huart1); // остановка приема
-        bluetoothData.ind = 0; // признак ожидание первого байта
-        bluetoothData.timeOut = 0;
-        HAL_UART_Receive_IT(&huart1,(uint8_t*)bluetoothData.RXBuffer,2); // запуск приема
-    }
-  }
+  pwTriac0--;
+  pwTriac1--;
+  pulsPeriod--;
+  beepOn--;
+  bluetoothData.timeOut++;
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
@@ -226,21 +227,6 @@ void DMA1_Channel1_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles TIM2 global interrupt.
-  */
-void TIM2_IRQHandler(void)
-{
-  /* USER CODE BEGIN TIM2_IRQn 0 */
-  /* ------  таймер с периодом 5 мс.  ----*/
-  /* USER CODE END TIM2_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim2);
-  /* USER CODE BEGIN TIM2_IRQn 1 */
-  if (pwTriac0) --pwTriac0; else HEATER = OFF;
-  if (pwTriac1) --pwTriac1; else HUMIDI = OFF;
-  /* USER CODE END TIM2_IRQn 1 */
-}
-
-/**
   * @brief This function handles TIM3 global interrupt.
   */
 void TIM3_IRQHandler(void)
@@ -266,6 +252,7 @@ void TIM4_IRQHandler(void)
   HAL_TIM_IRQHandler(&htim4);
   /* USER CODE BEGIN TIM4_IRQn 1 */
   CHECK = 1;
+  countsec++;
   /* USER CODE END TIM4_IRQn 1 */
 }
 

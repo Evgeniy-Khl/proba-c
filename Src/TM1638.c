@@ -61,14 +61,14 @@ void ReadKeyTM1638(void){
 	STB_H();
 }
 
-void LedOn(uint8_t pos){
+void LedOn(uint8_t pos, uint8_t led){
     pos <<= 1; pos+=2;
-    DisplBuffer[pos] = 1;
+    DisplBuffer[pos] |= led;
 }
 
-void LedInverse(uint8_t pos){
+void LedInverse(uint8_t pos, uint8_t led){
     pos <<= 1; pos+=2;
-    DisplBuffer[pos] ^= 1;
+    DisplBuffer[pos] ^= led;
 }
 
 void LedOff(uint8_t pos){

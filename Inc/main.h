@@ -205,12 +205,12 @@ union Byte {
 
 #define CHECK   portFlag.bitfield.a0  // Start of all checks
 #define ALARM   portFlag.bitfield.a1  // Alarm flag
-#define OVRHEAT portFlag.bitfield.a2  // Overheat flag
-#define EEPSAVE portFlag.bitfield.a3  // Overheat flag
-#define VENTIL 	portFlag.bitfield.a4  // Ventilation flag
-#define CARBON 	portFlag.bitfield.a5  // Carbon flag
-#define HIH5030	portFlag.bitfield.a6  // exist HIH5030
-#define AM2301	portFlag.bitfield.a7  // exist AM2301
+#define VENTIL 	portFlag.bitfield.a2  // Ventilation flag
+#define EEPSAVE portFlag.bitfield.a3  // Save in EEPROM flag
+#define HIH5030	portFlag.bitfield.a4  // exist HIH5030 flag
+#define AM2301	portFlag.bitfield.a5  // exist AM2301 flag
+#define LEDOFF  portFlag.bitfield.a6  // 
+#define DISPLAY portFlag.bitfield.a7  // 
 
 #define HEATER  portOut.bitfield.a0  // Õ¿√–≈¬¿“≈À‹
 #define HUMIDI	portOut.bitfield.a1  // ”¬À¿∆Õ»“≈À‹

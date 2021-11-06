@@ -1,12 +1,14 @@
 #include "main.h"
 #include "global.h"   // здесь определена структура eeprom и структура rampv
 #include "keypad.h"
+#include "proc.h"
 
 extern int8_t countsec, getButton, displmode;
 extern uint8_t ok0, ok1, keyBuffer[], keynum, setup, waitset, waitkey, modules, servis;
-uint8_t beepOn, disableBeep, topOwner, topUser, botUser, psword;
-int16_t buf, alarmErr;
-
+extern int16_t alarmErr;
+uint8_t disableBeep, topOwner, topUser, botUser, psword;
+int16_t buf;
+/*
 void pushkey(void){
  uint8_t xx, keykod;
   getButton = 0;
@@ -17,23 +19,22 @@ void pushkey(void){
   xx =  keyBuffer[i]; 
   xx <<= i; 
   keykod |= xx;
-  if (keyBuffer[i]==0x01) LedInverse(i);
-  else if (keyBuffer[i]==0x10) LedInverse(i+4);
+  if (keyBuffer[i]==0x01) LedInverse(i,1);
+  else if (keyBuffer[i]==0x10) LedInverse(i+4,1);
   }
   SendDataTM1638();  
 }
-/*
+*/
 void checkkey(struct eeprom *t, int16_t pvT0){
   uint8_t xx, keykod;
-//HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin); 
+HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin); 
   ReadKeyTM1638();  
   keykod=0;
   for (uint8_t i=0;i<4;i++){xx =  keyBuffer[i]; xx <<= i; keykod |= xx;}   // определяем нажатые кнопки
-  SendDataTM1638();
   if ((keynum == keykod)&&keynum) {xx = 1; getButton=0;}  // код повторился начинаем обраьотку нажатых кнопок (getButton=0) дополнительная задержка на срабатывание кнопки
   else {keynum = keykod; xx= 0; waitkey=WAITCOUNT; getButton=waitkey/4;}
   if (xx){
-    Check=1;
+    DISPLAY=1;
     if (setup){                // режим РЕДАКТИРОВАНИЯ УСТАВОК И ПАРАМЕТРОВ
         waitset=10;            // удерживаем режим установок
         switch (keykod)
@@ -44,7 +45,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
               switch (setup)
                 {
                  case 1:  buf=t->spT[0]; break;         // У1 Уставка температуры
-                 case 2:  if(HIH5030) buf=t->spRH[1]; else buf=t->spT[1]; break;// У2 Уставка влажности
+                 case 2:  if(HIH5030||AM2301) buf=t->spRH[1]; else buf=t->spT[1]; break;// У2 Уставка влажности
                  case 3:  buf=t->timer[0]; break;       // У3 время отключенного состояния
                  case 4:  buf=t->timer[1]; break;       // У4 время включенного состояния (если не 0 то это секунды)
                  case 5:  buf=t->alarm[0]; break;       // У5 тревога по каналу 1
@@ -63,7 +64,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
               switch (setup)
                {
                 case 1:  t->spT[0]=buf; break;                                                                   // У1  Уставка температуры
-                case 2:  if (HIH5030) t->spRH[1]=buf; else t->spT[1]=buf; break;                                     // У2  Уставка влажности
+                case 2:  if (HIH5030||AM2301) t->spRH[1]=buf; else t->spT[1]=buf; break;                         // У2  Уставка влажности
                 case 3:  if (buf<1) buf=1; t->timer[0]=buf; break;                                               // У3  время отключенного состояния
                 case 4:  t->timer[1]=buf; break;                                                                 // У4  время включенного состояния (секунды)
                 case 5:  buf&=0x1F; if (buf<1) buf=1; t->alarm[0]=buf; break;                                    // У5  тревога по каналу 1
@@ -131,7 +132,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
               switch (setup)
                {
                 case 1:  t->spT[0]=buf; break;                                                                   // У1  Уставка температуры
-                case 2:  if (HIH5030) t->spRH[1]=buf; else t->spT[1]=buf; break;                                     // У2  Уставка влажности
+                case 2:  if (HIH5030||AM2301) t->spRH[1]=buf; else t->spT[1]=buf; break;                                     // У2  Уставка влажности
                 case 3:  if (buf<1) buf=1; t->timer[0]=buf; break;                                               // У3  время отключенного состояния
                 case 4:  t->timer[1]=buf; break;                                                                 // У4  время включенного состояния (секунды)
                 case 5:  buf&=0x1F; if (buf<1) buf=1; t->alarm[0]=buf; break;                                    // У5  тревога по каналу 1
@@ -171,7 +172,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
                 case 31: buf&=0x3FF; if(buf<100) buf=100; t->Ti[1]=buf; break;    // ограничено 100 - 1023;
                }; 
              } break;
-           case KEY_6: setup=0;EEPSAVE = 0;displmode=0;psword=0;buf=0;beepOn=DURATION*3; break;
+           case KEY_6: setup=0;EEPSAVE = 0;displmode=0;psword=0;buf=0;beeper_ON(DURATION*3); break;
           }; 
        }
     else if (servis)          // СЕРВИСНЫЙ режим  ----------------------------
@@ -197,7 +198,7 @@ void checkkey(struct eeprom *t, int16_t pvT0){
             } break;
            case KEY_3:
             {
-              ++servis; servis&=0x0F; displmode=0; waitkey=WAITCOUNT; beepOn=DURATION;
+              ++servis; servis&=0x0F; displmode=0; waitkey=WAITCOUNT; beeper_ON(DURATION);
               switch (servis)
                 {
                  case 7: buf=t->identif; break;           // C7 -> identif
@@ -228,19 +229,21 @@ void checkkey(struct eeprom *t, int16_t pvT0){
                  case 15: t->Zonality= buf&0x3F; break;      // C15-> порог зональности в камере
                }
             } break;
-           case KEY_6: servis=0; EEPSAVE = 0; displmode=0; psword=0; buf=0; topUser=TOPUSER; botUser=BOTUSER; t->state &=0xE7; beepOn=DURATION*3; break;
+           case KEY_6: servis=0; EEPSAVE = 0; displmode=0; psword=0; buf=0; topUser=TOPUSER; botUser=BOTUSER; t->condition &=0xE7; beeper_ON(DURATION*3); break;
           }
        }
     else if(psword==10)       // режим ПАРОЛЬ ВВЕДЕН -------------------------
        {
         switch (keykod)
           {
-           case KEY_1: setup=1; servis=0; displmode=0; buf=t->spT[0]; waitset=20; waitkey=WAITCOUNT; beepOn=DURATION*2; break;
-           case KEY_3: if((t->state&7)==0) {servis=1; setup=0; displmode=0; waitset=20; waitkey=WAITCOUNT; beepOn=DURATION*2;} break;
-           case KEY_6: psword=0; displmode=0; buf=0; t->state &=0xE7; servis=0; setup=0; waitkey=WAITCOUNT; beepOn=DURATION*3; break;// РЕЖИМЫ ОТКЛЮЧЕНЫ
-           case KEY_6_5: if((t->state&7)==0){t->state|=1; t->state&=0x7F; beepOn=DURATION*2;} else {t->state&=0x60; beepOn=DURATION*3;} countsec=-5; ok0=0; ok1=0; psword=0; break;
-           case KEY_7_5: if((t->state&0x1F)==0) t->state|=0x80; countsec=-5; psword=0; break;//ВКЛЮЧИТЬ Поворот лотков при ОТКЛЮЧЕННОЙ камере !!!
-           case KEY_8_5: if(t->state&0x80) t->state&=0x7F; countsec=-5; psword=0; break;//ОТКЛЮЧИТЬ Поворот лотков при ОТКЛЮЧЕННОЙ камере !!!
+           case KEY_1: setup=1; servis=0; displmode=0; buf=t->spT[0]; waitset=20; waitkey=WAITCOUNT; beeper_ON(DURATION*2); break;
+           case KEY_3: if((t->condition&7)==0) {servis=1; setup=0; displmode=0; waitset=20; waitkey=WAITCOUNT; beeper_ON(DURATION*2);} break;
+           case KEY_6: psword=0; displmode=0; buf=0; t->condition &=0xE7; servis=0; setup=0; waitkey=WAITCOUNT; beeper_ON(DURATION*3); break;// РЕЖИМЫ ОТКЛЮЧЕНЫ
+           case KEY_6_5: if((t->condition&7)==0){t->condition|=0x01; t->condition&=0x7F; beeper_ON(DURATION*2);}
+                         else {t->condition&=0x60; beeper_ON(DURATION*3);} countsec=-5; ok0=0; ok1=0; psword=0; EEPSAVE=1; waitset=1;
+                break;
+           case KEY_7_5: if((t->condition&0x1F)==0) t->condition|=0x80; countsec=-5; psword=0; EEPSAVE=1; waitset=1; break; //ВКЛЮЧИТЬ Поворот лотков при ОТКЛЮЧЕННОЙ камере !!!
+           case KEY_8_5: if(t->condition&0x80) t->condition&=0x7F; countsec=-5; psword=0; EEPSAVE=1; waitset=1; break;      //ОТКЛЮЧИТЬ Поворот лотков при ОТКЛЮЧЕННОЙ камере !!!
            case KEY_4_5_6_7: displmode=-10; break;
           }
        }
@@ -251,17 +254,17 @@ void checkkey(struct eeprom *t, int16_t pvT0){
            case KEY_3:   buf++; psword++; waitset=5; break;
            case KEY_4:   buf++; buf <<= 1; psword++; waitset=5; break;
            case KEY_5:   ++displmode; displmode&=3; waitset=20; break;
-           case KEY_6:   psword=0; displmode=0; buf=0; t->state &=0xE7; servis=0; waitkey=WAITCOUNT; beepOn=DURATION*3; break;// РЕЖИМЫ ОТКЛЮЧЕНЫ
-           case KEY_7:   disableBeep=10; alarmErr = abs(t->spT[0]-pvT0); break;          // тревога отключена на 10 мин.
-           case KEY_8:   disableBeep=10; alarmErr = abs(t->spT[0]-pvT0); break;          // тревога отключена на 10 мин.
-           case KEY_7_8: t->state |=0x08; beepOn=DURATION*2; break;              // ГОРИЗОНТ ВКЛЮЧЕН !!
-           case KEY_8_6: if((t->state&7)==1){t->state |=0x02; beepOn=DURATION*2;} break; // ВКЛЮЧИТЬ Режим "подгототка к ОХЛАЖДЕНИЮ"
-//           case KEY_7_6: pvTimer=1; rotate_trays(); break;                    // принудительный поворот
+           case KEY_6:   psword=0; displmode=0; buf=0; t->condition &=0xE7; servis=0; waitkey=WAITCOUNT; beeper_ON(DURATION*3); break;// РЕЖИМЫ ОТКЛЮЧЕНЫ
+           case KEY_7:   disableBeep=10; alarmErr = abs(t->spT[0]-pvT0); break;      // тревога отключена на 10 мин.
+           case KEY_8:   disableBeep=10; alarmErr = abs(t->spT[0]-pvT0); break;      // тревога отключена на 10 мин.
+           case KEY_7_8: t->condition |=0x08; beeper_ON(DURATION*2); break;              // ГОРИЗОНТ ВКЛЮЧЕН !!
+           case KEY_8_6: if((t->condition&7)==1){t->condition |=0x02; beeper_ON(DURATION*2);} break; // ВКЛЮЧИТЬ Режим "подгототка к ОХЛАЖДЕНИЮ"
+//           case KEY_7_6: pvTimer=1; rotate_trays(); break;                         // принудительный поворот
           };
        };
 //-----------------------------------------------------------------------------------------------------------------------------------------------------
-     if(psword==4) {if(buf==12) {psword=10; waitset=20; beepOn=DURATION*2;} else psword=0;}   // верный пароль -> KEY_3+KEY_4+KEY_3+KEY_4 ограничим время хранения пароля (20 сек.)!     
+     if(psword==4) {if(buf==12) {psword=10; waitset=20; beeper_ON(DURATION*2);} else psword=0;}   // верный пароль -> KEY_3+KEY_4+KEY_3+KEY_4 ограничим время хранения пароля (20 сек.)!     
 //-----------------------------------------------------------------------------------------------------------------------------------------------------
   }
 }
-*/
+

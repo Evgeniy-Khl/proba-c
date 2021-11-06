@@ -14,9 +14,13 @@
 #define MODUL     10
 #define DISPL     11
 
+//void display(struct eeprom *t, struct rampv *ram);
+//void display_setup(struct eeprom *t);
+//void display_servis(struct rampv *ram);
+void ledOut(uint8_t condition, uint8_t fuses);
 void displ_1(int16_t val, uint8_t comma);
 void displ_2(int16_t val, uint8_t comma);
-void displ_3(int16_t val, int8_t mode, int8_t errors, int8_t warning);
+void displ_3(int16_t val, int8_t mode, int8_t blink);
 void clr_1(void);
 void clr_2(void);
 void clr_3(void);
