@@ -4,9 +4,9 @@
 #include "proc.h"
 
 extern int8_t countsec, getButton, displmode;
-extern uint8_t ok0, ok1, keyBuffer[], keynum, setup, waitset, waitkey, modules, servis;
+extern uint8_t ok0, ok1, keyBuffer[], setup, waitset, waitkey, modules, servis;
 extern int16_t alarmErr;
-uint8_t disableBeep, topOwner, topUser, botUser, psword;
+uint8_t disableBeep, topOwner, topUser, botUser, psword, keynum;
 int16_t buf;
 /*
 void pushkey(void){

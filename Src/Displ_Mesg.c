@@ -1,8 +1,8 @@
 #include "main.h"
 #include "global.h"   // здесь определена структура eeprom и структура rampv
 char SSDBuffer[20];
-extern uint8_t show, ok0, ok1, setup, waitset, waitkey, servis, displmode, modules, disableBeep, psword, keynum;
-extern int16_t alarmErr, buf, currAdc, thermistorAdc, humAdc;
+extern uint8_t show, setup, waitset, waitkey, servis, modules,keynum;
+extern int16_t currAdc, humAdc;
 
 void dsplMss(uint8_t *data, struct rampv *ram){
   uint8_t x,y,i;

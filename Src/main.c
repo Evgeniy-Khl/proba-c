@@ -69,7 +69,7 @@ union Byte portOut;
 union Byte portFlag;
 
 extern uint8_t ds18b20_amount, disableBeep, topOwner, topUser, botUser, ok0, ok1, psword, pvAeration;
-extern int16_t buf;
+extern int16_t buf, valRun;
 
 extern struct {
   uint8_t RXBuffer[2];
@@ -87,7 +87,7 @@ extern struct {
 } eepMem;
 
 // -------- ISIDA ------
-uint8_t show=0, keynum=0, getButton=0, countmin, modules=0, setup, servis, waitset, waitkey=WAITCOUNT;
+uint8_t show=0, getButton=0, modules=0, setup, servis, waitset, waitkey=WAITCOUNT;
 int8_t countsec=-15, displmode;
 /*
 ext[0] модуль Холла
@@ -106,14 +106,14 @@ union pointvalue{
     int16_t pvRH;                 // 2 байт ind=10;ind=11 значение датчика относительной влажности
     int16_t pvCO2[3];             // 6 байт ind=12-ind=17 значения датчика CO2 ---------- ИТОГО 18 bytes ------------
     uint8_t pvTimer;              // 1 байт ind=18        значение таймера
-    uint8_t pvTmrCount;           // 1 байт ind=19        значение счетчика проходов поворота
+    uint8_t pvTmrCount;           // 1 байт ind=19        не используется !!!!!!!!!!!!!!!!!!!!!!!!!
     uint8_t pvFlap;               // 1 байт ind=20        положение заслонки 
     int8_t power;                 // 1 байт ind=21        мощность подаваемая на тены
     uint8_t fuses;                // 1 байт ind=22        короткие замыкания 
     uint8_t errors, warning;      // 2 байт ind=23;ind=24 ошибки и предупреждения
     uint8_t cost0, cost1;         // 2 байт ind=25;ind=26 затраты ресурсов
     uint8_t date, hours;          // 2 байт ind=27;ind=28 счетчики суток и часов
-    uint8_t other0;               // 1 байт ind=29        прочее
+    uint8_t other0;               // 1 байт ind=29        не используется !!!!!!!!!!!!!!!!!!!!!!!!!
   } pv;// ------------------ ИТОГО 30 bytes -------------------------------
 } upv;
 
@@ -128,7 +128,7 @@ union serialdata{
     int16_t K[2];       // 4 байт ind=8-ind=11  пропорциональный коэфф.
     int16_t Ti[2];      // 4 байт ind=12-ind=15 интегральный коэфф.
     int16_t minRun;     // 2 байт ind=16;ind=17 импульсное управление насосом увлажнителя
-    int16_t maxRun;     // 2 байт ind=18;ind=19 импульсное управление насосом увлажнителя
+    int16_t maxRun;     // 2 байт ind=18;ind=19 не используется !!!!!!!!!!!!!!!!!!!!!!!!!
     int16_t period;     // 2 байт ind=20;ind=21 импульсное управление насосом увлажнителя
     int16_t TimeOut;    // 2 байт ind=22;ind=23 время ожидания начала режима охлаждения
     int16_t EnergyMeter;// 2 байт ind=24;ind=25 счетчик элктрической энергии  ----------- ИТОГО 26 bytes ------------
@@ -148,8 +148,8 @@ union serialdata{
     uint8_t TurnTime;   // 1 байт ind=44;       время ожидания прохода лотков в секундах
     uint8_t HihEnable;  // 1 байт ind=45;       разрешение использования датчика влажности
     uint8_t KoffCurr;   // 1 байт ind=46;       маштабный коэф. по току симистора  (160 для AC1010 или 80 для другого)
-    uint8_t coolOn;     // 1 байт ind=47;       порог включения вентилятора обдува сисмистора coolOn=80~>65 грд.С.
-    uint8_t coolOff;    // 1 байт ind=48;       порог отключения вентилятора обдува сисмистора
+    uint8_t coolOn;     // 1 байт ind=47;       не используется !!!!!!!!!!!!!!!!!!!!!!!!!
+    uint8_t coolOff;    // 1 байт ind=48;       не используется !!!!!!!!!!!!!!!!!!!!!!!!!
     uint8_t Zonality;   // 1 байт ind=49;       порог зональности в камере ----------- 24 bytes ------------
   } sp;                 // ------------------ ИТОГО 50 bytes -------------------------------
 } eep;
@@ -348,14 +348,20 @@ int main(void)
             if(HIH5030||AM2301){  // подключен электронный датчик влажности
               int16_t err = eep.sp.spRH[1] - upv.pv.pvRH;
               if(humCondition(err, eep.sp.alarm[1], eep.sp.extOn[1])) upv.pv.warning |= 0x02;
-              pwTriac1 = humidifier(err, &eep.sp);
-              if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
+              // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
+              if(eep.sp.relayMode&3) {
+                pwTriac1 = humidifier(err, &eep.sp);
+                if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
+              }
             }
             else if(upv.pv.pvT[1] < 850){
               int16_t err = eep.sp.spT[1] - upv.pv.pvT[1];
               if(humCondition(err, eep.sp.alarm[1], eep.sp.extOn[1])) upv.pv.warning |= 0x02;
-              pwTriac1 = humidifier(err, &eep.sp);
-              if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
+              // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
+              if(eep.sp.relayMode&3) {
+                pwTriac1 = humidifier(err, &eep.sp);
+                if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
+              }
             }
             else upv.pv.errors |= 0x02;   // ОШИБКА ДАТЧИКА влажности !!!
           }
@@ -451,7 +457,13 @@ int main(void)
     /* USER CODE BEGIN 3 */
       if(pwTriac0 < 0) {pwTriac0=0; HEATER = 0; LEDOFF = 1;}  // HEATER Off
       if(pwTriac1 < 0) {pwTriac1=0; HUMIDI = 0; LEDOFF = 1;}  // HUMIDIFIER Off
-      if(pulsPeriod < 0) {pwTriac1=0; HUMIDI = 0; LEDOFF = 1;}  // HUMIDIFIER Off
+      if(eep.sp.relayMode == 4){                              // импульсный режим работы насоса
+        if(pulsPeriod < 0){
+          pulsPeriod = eep.sp.period;
+          pwTriac1=valRun;
+          if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
+        }
+      }
       if(LEDOFF) {LEDOFF = 0; ledOut(eep.sp.condition, upv.pv.fuses); SendDataTM1638(); set_Output();}
       if(beepOn < 0) {beepOn=0; HAL_GPIO_WritePin(Beeper_GPIO_Port, Beeper_Pin, GPIO_PIN_RESET);}  // Beeper Off
       if(bluetoothData.ind == 0)  bluetoothData.timeOut=0; 

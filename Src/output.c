@@ -5,7 +5,7 @@
 extern uint8_t disableBeep;
 extern int16_t pulsPeriod;
 uint8_t ok0, ok1;
-int16_t valRun;
+uint16_t valRun;
 float iPart[3];
 
 uint8_t heatCondition(int16_t err, uint8_t alarm, uint8_t extOn){
@@ -65,6 +65,12 @@ uint16_t humidifier(int16_t err, struct eeprom *t){
     else if(err < 0) {result = 0; direction = -1;}              // выше заданной отключить увлажнитель
     else if(direction>0) result = 1100;                         // продолжаем увлажнять
     else result = 0;                                            // продолжаем осушать
+  }
+  else if(t->relayMode==4){
+    valRun = UpdatePID(err, 1, t);                              // определение длительности ВКЛ. состояния
+    if(valRun < t->minRun) valRun = t->minRun;
+    else if(valRun > t->period) valRun = t->period;             // длит. впрыска не должна превыщать длит.переода
+    if(err<=0) valRun = 0;                                      // отключение впрыска по 2 каналу если перелив
   }
   else result = UpdatePID(err, 0, t);
   return result;
@@ -129,7 +135,7 @@ void extra_2(struct eeprom *t, struct rampv *ram){
 
 void OutPulse(int16_t err, struct eeprom *t)
 {
-  if(ok0==0||ok0==2){valRun = 0; return;};        // отключение впрыска по 2 каналу если идет разогрев
+  if(ok0==0||ok0==2){valRun = 0; return;};        // отключение впрыска по 2 каналу если идет разогрев или переохлаждение
   valRun = UpdatePID(err,1,t);                    // определение длительности ВКЛ. состояния
   if(valRun < t->minRun) valRun = t->minRun;
   else if(valRun > t->period) valRun = t->period; // длит. впрыска не должна превыщать длит.переода
