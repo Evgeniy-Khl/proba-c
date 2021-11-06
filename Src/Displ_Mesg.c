@@ -10,7 +10,7 @@ void dsplMss(uint8_t *data, struct rampv *ram){
     case 1:
           SSD1306_Fill(SSD1306_COLOR_BLACK); //clear oled
           y=0;
-          sprintf(SSDBuffer,"ID  =%2i  condi=%2x",*(data+37),*(data+38)); 
+          sprintf(SSDBuffer,"ID   =%2u  condi=%2x",*(data+37),*(data+38)); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
@@ -25,15 +25,16 @@ void dsplMss(uint8_t *data, struct rampv *ram){
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
           y+=10;
-          sprintf(SSDBuffer,"wtset=%2i  wtkey=%2i",waitset,waitkey); 
+          sprintf(SSDBuffer,"Tim=%4i  Pow=%4i",ram->pvTimer,ram->power); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
           y+=10;
-          sprintf(SSDBuffer,"knm=%2i  kkd=%2i",keynum,keynum); 
+          sprintf(SSDBuffer,"Flp=%4i  CO2=%4i",ram->pvFlap,ram->pvCO2[0]); 
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
+         
         break;
     case 2:
         SSD1306_Fill(SSD1306_COLOR_BLACK); //clear oled
@@ -114,7 +115,7 @@ void dsplMss(uint8_t *data, struct rampv *ram){
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();
           y+=10;
-          sprintf(SSDBuffer,"Vi=%4i  Vh=%4i",currAdc, humAdc);
+          sprintf(SSDBuffer,"Vi=%4u  Vh=%4u",currAdc, humAdc);
           SSD1306_GotoXY(0,y);
           SSD1306_Puts(SSDBuffer, &Font_7x10, SSD1306_COLOR_WHITE);
           SSD1306_UpdateScreen();

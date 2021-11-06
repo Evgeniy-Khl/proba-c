@@ -17,12 +17,16 @@ float stold[2][2];
 
 void rotate_trays(uint8_t timer0, uint8_t timer1, struct rampv *ram){ // симистричный таймер
   uint8_t result;
-  if(TURN){if(--ram->pvTimer==0) {ram->pvTimer=timer0; result = OFF; cmdmodule=NEW_TURN;}}
-  else {if(--ram->pvTimer==0) {if (timer1) {ram->pvTimer=timer1; result = ON;} else {ram->pvTimer=timer0; result = ON;} cmdmodule=NEW_TURN;}};
-  if(ram->fuses&0x08) result = OFF;      // ПРЕДОХРАНИТЕЛЬ реле поворотов
-  switch (result){
-    case ON:  TURN = ON; break;
-    case OFF: TURN = OFF; break;
+  if(--ram->pvTimer==0){
+    if(TURN) {ram->pvTimer=timer0; result = OFF;}
+    else if(timer1) {ram->pvTimer=timer1; result = ON;} 
+    else {ram->pvTimer=timer0; result = ON;}
+    cmdmodule=NEW_TURN;
+    if(ram->fuses&0x08) result = OFF;      // ПРЕДОХРАНИТЕЛЬ реле поворотов
+    switch (result){
+      case ON:  TURN = ON; break;
+      case OFF: TURN = OFF; break;
+    }
   }
 }
 
@@ -111,8 +115,7 @@ void beeper_ON(uint16_t duration){
 
 void set_Output(void){
   HAL_SPI_Transmit(&hspi2,(uint8_t*)&portOut, 1, 5000);
-	RCK_H();
-  HAL_Delay(1);
+  RCK_H();
   RCK_L();
 }
 

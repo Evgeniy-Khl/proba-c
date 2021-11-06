@@ -31,18 +31,18 @@ uint8_t humCondition(int16_t err, uint8_t alarm, uint8_t extOn){
 int16_t UpdatePID(int16_t err, uint8_t cn, struct eeprom *t){
  int16_t maxVal;
  float pPart, Ud;
-  if(cn) maxVal=t->maxRun; else maxVal=1100;  // maxRun = 10000 = 10 секунд; 1100 -> 1.1 сек.
-  pPart = (float) err * t->K[cn];             // расчет пропорциональной части
+  if(cn) maxVal=t->maxRun; else maxVal=MAXPULS; // maxRun = 10000 = 10 секунд; 1100 -> 1.1 сек.
+  pPart = (float) err * t->K[cn];               // расчет пропорциональной части
 //---- функци€ ограничени€ pPart ---------------
   if (pPart < 0) pPart = 0;
-  else if (pPart > maxVal) pPart = maxVal;     // функци€ ограничени€
+  else if (pPart > maxVal) pPart = maxVal;      // функци€ ограничени€
 //----------------------------------------------
-  iPart[cn] += (float) t->K[cn] / t->Ti[cn] * err;   // приращение интегральной части
-  Ud = pPart + iPart[cn];                      // выход регул€тора до ограничени€
+  iPart[cn] += (float) t->K[cn] / t->Ti[cn] * err;  // приращение интегральной части
+  Ud = pPart + iPart[cn];                       // выход регул€тора до ограничени€
 //---- функци€ ограничени€ Ud ------------------
   if (Ud < 0) Ud = 0;
-  else if (Ud > maxVal) Ud = maxVal;           // функци€ ограничени€
-  iPart[cn] = Ud - pPart;                      // "антинасыщ€юща€" поправка
+  else if (Ud > maxVal) Ud = maxVal;            // функци€ ограничени€
+  iPart[cn] = Ud - pPart;                       // "антинасыщ€юща€" поправка
   return Ud;
 };
 
@@ -50,7 +50,7 @@ uint16_t heater(int16_t err, struct eeprom *t){
   uint16_t result;
   // релейный режим работы  0-Ќ≈“; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
   if(t->relayMode&1){
-    if(err > 0) result = 1100; else result=0;
+    if(err > 0) result = MAXPULS; else result=0;
   }
   else result = UpdatePID(err, 0, t);
   return result;
@@ -59,11 +59,11 @@ uint16_t heater(int16_t err, struct eeprom *t){
 uint16_t humidifier(int16_t err, struct eeprom *t){
   uint16_t result;
   static int8_t direction;
-  // релейный режим работы  0-Ќ≈“; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
+  // релейный режим работы  0-Ќ≈“; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1] 4->по кан.[1] импульсный режим
   if(t->relayMode&2){
-    if(err > t->Hysteresis) {result = 1100; direction = 1;}     // ниже (заданной+Hysteresis) включить увлажнитель
+    if(err > t->Hysteresis) {result = MAXPULS; direction = 1;}  // ниже (заданной+Hysteresis) включить увлажнитель
     else if(err < 0) {result = 0; direction = -1;}              // выше заданной отключить увлажнитель
-    else if(direction>0) result = 1100;                         // продолжаем увлажн€ть
+    else if(direction>0) result = MAXPULS;                      // продолжаем увлажн€ть
     else result = 0;                                            // продолжаем осушать
   }
   else if(t->relayMode==4){

@@ -1,8 +1,8 @@
 #ifndef __PROC_H
 #define __PROC_H
 
-#define RCK_H() HAL_GPIO_WritePin(OUT_RCK_GPIO_Port, OUT_RCK_Pin, GPIO_PIN_SET)
-#define RCK_L() HAL_GPIO_WritePin(OUT_RCK_GPIO_Port, OUT_RCK_Pin, GPIO_PIN_RESET)
+#define RCK_H() HAL_GPIO_WritePin(DE485_GPIO_Port, DE485_Pin, GPIO_PIN_SET)
+#define RCK_L() HAL_GPIO_WritePin(DE485_GPIO_Port, DE485_Pin, GPIO_PIN_RESET)
 
 void checkSensor(void);
 void CO2_check(uint16_t spCO20, uint16_t spCO21, uint16_t pvCO20);

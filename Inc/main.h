@@ -137,6 +137,7 @@ void Error_Handler(void);
 #define SENSOREGG   171
 #define DURATION    80
 #define COUNT       500
+#define MAXPULS     1100    // 1.1 сек.
 
 #define ID_HALL         0xF1    // идентификатор блока
 #define ID_HORIZON      0xF3    // идентификатор блока

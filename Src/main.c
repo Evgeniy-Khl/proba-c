@@ -88,15 +88,15 @@ extern struct {
 
 // -------- ISIDA ------
 uint8_t show=0, getButton=0, modules=0, setup, servis, waitset, waitkey=WAITCOUNT;
-int8_t countsec=-15, displmode;
+int8_t countsec=-10, displmode;
 /*
 ext[0] модуль Холла
 ext[1] модуль ГОРИЗОНТА
 ext[2] модуль СО2
 ext[3] модуль заслонок
 */
-int16_t pwTriac0, pwTriac1, pulsPeriod, currAdc, humAdc, beepOn, alarmErr, statPw[2]; 
-
+int16_t pwTriac0, pwTriac1, pulsPeriod, beepOn, alarmErr; 
+uint16_t currAdc, humAdc, statPw[2];
 /* ----------------------------- BEGIN point value -------------------------------------- */
 union pointvalue{
   uint8_t pvdata[30];
@@ -141,7 +141,7 @@ union serialdata{
     uint8_t identif;    // 1 байт ind=37;       сетевой номер прибора
     uint8_t condition;  // 1 байт ind=38;       состояние камеры (ОТКЛ. ВКЛ. ОХЛАЖДЕНИЕ, и т.д.)
     uint8_t extendMode; // 1 байт ind=39;       расширенный режим работы  0-СИРЕНА; 1-ВЕНТ. 2-Форс НАГР. 3-Форс ОХЛЖД. 4-Форс ОСУШ. 5-Дубляж увлажнения
-    uint8_t relayMode;  // 1 байт ind=40;       релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
+    uint8_t relayMode;  // 1 байт ind=40;       релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1] 4->по кан.[1] импульсный режим
     uint8_t programm;   // 1 байт ind=41;       работа по программе
     uint8_t Hysteresis; // 1 байт ind=42;       Гистерезис канала увлажнения
     uint8_t ForceHeat;  // 1 байт ind=43;       Форсированный нагрев 5 = 0.5 грд.С.
@@ -249,6 +249,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  set_Output();
 	HAL_TIM_Base_Start_IT(&htim4);	/* ------  таймер 1Гц.   период 1000 мс.  ----*/
 	HAL_TIM_Base_Start_IT(&htim3);	/* ------  таймер 6Гц.   период 166 мс.  ----*/
   HAL_ADCEx_Calibration_Start(&hadc1);            // калибровкa АЦП
@@ -349,7 +350,7 @@ int main(void)
               int16_t err = eep.sp.spRH[1] - upv.pv.pvRH;
               if(humCondition(err, eep.sp.alarm[1], eep.sp.extOn[1])) upv.pv.warning |= 0x02;
               // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1] 4->по кан.[1] импульсный режим
-              if(eep.sp.relayMode&4) valRun = humidifier(err, &eep.sp);
+              if(eep.sp.relayMode==4) valRun = humidifier(err, &eep.sp);
               else {
                 pwTriac1 = humidifier(err, &eep.sp);
                 if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
@@ -359,7 +360,7 @@ int main(void)
               int16_t err = eep.sp.spT[1] - upv.pv.pvT[1];
               if(humCondition(err, eep.sp.alarm[1], eep.sp.extOn[1])) upv.pv.warning |= 0x02;
               // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1] 4->по кан.[1] импульсный режим
-              if(eep.sp.relayMode&4) valRun = humidifier(err, &eep.sp);
+              if(eep.sp.relayMode==4) valRun = humidifier(err, &eep.sp);
               else {
                 pwTriac1 = humidifier(err, &eep.sp);
                 if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
@@ -391,16 +392,16 @@ int main(void)
             if(!(HIH5030||AM2301) && (upv.pv.pvT[1]-upv.pv.pvT[0])>20) {upv.pv.warning =0x10; pwTriac0 = 500;}					// Неправильная конфигурация датчиков !!
   //--------------------------------------- ПОВОРОТ ЛОТКОВ Статистика камеры ----------------------------------------------------------------------
             if(eep.sp.KoffCurr){
-              currAdc *= eep.sp.KoffCurr; currAdc /= 100;                 // конверсия mV в mA
+//              currAdc *= eep.sp.KoffCurr; currAdc /= 100;                 // конверсия mV в mA
               summCurr += currAdc;                                        // суммирование тока симистора каждую секунду
-              if(upv.pv.power==100 && countsec>=0 && currAdc<1000) upv.pv.errors|=0x08;  // если ток < 1,0 А. -> НЕИСПРАВНА цепь НАГРЕВАТЕЛЯ 
+              if(upv.pv.power==100 && countsec>=0 && currAdc<500) upv.pv.errors|=0x08;  // если ток < 1,0 А. -> НЕИСПРАВНА цепь НАГРЕВАТЕЛЯ 
             }
             // АНАЛИЗ АВАРИЙНОЙ СИТУАЦИИ (важно в этом месте после анализа мощности)
             int16_t newErr = abs(eep.sp.spT[0]-upv.pv.pvT[0]);
             if((upv.pv.warning & 3)&&(newErr-alarmErr)>2) disableBeep=0;  // если при блокироке сирены продолжает увеличиватся ошибка сброс блокировки
             if(countsec>59){
                 countsec=0; if (disableBeep) disableBeep--;
-              if(!(eep.sp.condition&0x18)) rotate_trays(eep.sp.timer[0], eep.sp.timer[1], &upv.pv);  // выполняется только если // Камера ВКЛ. // Поворот лотков при ОТКЛЮЧЕННОЙ камере
+              if(!(eep.sp.condition&0x18)) rotate_trays(eep.sp.timer[0], eep.sp.timer[1], &upv.pv);  // выполняется только если Камера ВКЛ.
 //              if(upv.pv.pvCO2[0]>0) CO2_check(eep.sp.spCO2, eep.sp.spCO2, upv.pv.pvCO2[0]); // Проверка концентрации СО2
               else if(eep.sp.air[1]>0) aeration_check(eep.sp.air[0], eep.sp.air[1]);    // Проветривание выполняется только если air[1]>0
               statPw[0]/=60; statPw[1]/=60;     // расчет затрат ресурсов
@@ -413,23 +414,22 @@ int main(void)
         }
   //---------------------------------------------- КАМЕРА ОТКЛЮЧЕНА -------------------------------------------------------------------------------
         else if((eep.sp.condition&7)==0){
-//            if(eep.sp.relayMode == 4) valRun = 0;                       // ОТКЛЮЧИТЬ импульсное управление увлажнителем
+            if(eep.sp.relayMode==4) valRun = 0;                            // ОТКЛЮЧИТЬ импульсное управление увлажнителем
             if(servis){                                                   // включен СЕРВИСНЫЙ режим
               switch (servis){
-                 case 1: pwTriac0=255; portOut.value = 0x01; break;       // НАГРЕВАТЕЛЬ
-                 case 2: pwTriac1=255; portOut.value = 0x02; break;       // УВЛАЖНИТЕЛЬ
+                 case 1: pwTriac0=MAXPULS; portOut.value = 0x01; break;   // НАГРЕВАТЕЛЬ
+                 case 2: pwTriac1=MAXPULS; portOut.value = 0x02; break;   // УВЛАЖНИТЕЛЬ
                  case 3: portOut.value = 0x04; upv.pv.pvFlap = FLAPOPEN; if(modules&8) chkflap(SETFLAP, &upv.pv.pvFlap); break; // ПРОВЕТРИВАНИЕ, СЕРВОПРИВОД 90грд.
                  case 4: portOut.value = 0x08; break;                     // ДОПОЛНИТЕЛЬНЫЙ КАНАЛ
-                 case 5: portOut.value = 0x20; break;                     // ЛОТКИ ВВЕРХ
+                 case 5: portOut.value = 0x10; break;                     // ЛОТКИ ВВЕРХ
                  default: portOut.value = 0; upv.pv.pvFlap=FLAPCLOSE;
                           if(modules&8) chkflap(DATAREAD, &upv.pv.pvFlap);// ВСЕ ОТКЛЮЧЕНО, СЕРВОПРИВОД 0грд.
               }
             }
             else {
-               upv.pv.power=OFF; portOut.value = OFF; upv.pv.pvFlap=FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &upv.pv.pvFlap); VENTIL = OFF;// CARBON = OFF;
+               upv.pv.power=OFF; portOut.value &= 0x10; upv.pv.pvFlap=FLAPCLOSE; if(modules&8) chkflap(DATAREAD, &upv.pv.pvFlap); VENTIL = OFF;// CARBON = OFF;
                if(currAdc>1000){upv.pv.errors|=0x04;}   // если сила тока > 1000 mV ПРОБОЙ СИМИСТОРА!
-  //--------------------------------------- Поворот лотков при ОТКЛЮЧЕННОЙ камере !!! ----------------------------------------------------------
-               if(countsec>59){countsec=0; if(eep.sp.condition&0x80) rotate_trays(eep.sp.timer[0], eep.sp.timer[1], &upv.pv);}
+               if(countsec>59){countsec=0; if(eep.sp.condition&0x80) rotate_trays(eep.sp.timer[0], eep.sp.timer[1], &upv.pv);} // Поворот лотков при ОТКЛЮЧЕННОЙ камере
   //--------------------------------------------------------------------------------------------------------------------------------------------
             }
         }
@@ -441,29 +441,31 @@ int main(void)
         if(HAL_GPIO_ReadPin(KEY_S2_GPIO_Port, KEY_S2_Pin)==GPIO_PIN_RESET){if (++show > 4) show = 0;}
         dsplMss(eep.data, &upv.pv);
         // -------------------------------------------------------------------------------------------
-        HAL_UART_Transmit(&huart1,(uint8_t*)upv.pvdata,30,0x1000);
-        HAL_UART_Transmit(&huart1,(uint8_t*)eep.data,50,0x1000);
-        HAL_UART_Transmit(&huart1,(uint8_t*)bluetoothData.TXBuffer,2,0x1000);
+        if(HAL_GPIO_ReadPin(Bluetooth_STATE_GPIO_Port, Bluetooth_STATE_Pin)){ // если есть подключение по Bluetooth
+          HAL_UART_Transmit(&huart1,(uint8_t*)upv.pvdata,30,0x1000);
+          HAL_UART_Transmit(&huart1,(uint8_t*)eep.data,50,0x1000);
+          HAL_UART_Transmit(&huart1,(uint8_t*)bluetoothData.TXBuffer,2,0x1000);
+        }
+//        else if(rx_buffer_overflow) check_command();      // если установлен флаг - "комманда компьютера"
       }
       /* ---------------- ИНДИКАЦИЯ ------------------------------------------------- */
       if(DISPLAY){
+        DISPLAY = 0;
         if(setup) display_setup(&eep.sp);
         else if(servis) display_servis(&upv.pv);
         else display(&eep.sp, &upv.pv);
         ledOut(eep.sp.condition, upv.pv.fuses); SendDataTM1638(); set_Output();
       }
-  /* -------------------------------------------- END таймер TIM4 1 Гц. ------------------------------------------------------------------------ */
-//      if(rx_buffer_overflow) check_command();      // если установлен флаг - "комманда компьютера"
+  /* -------------------------------------------- END таймер TIM4 1 Гц. ------------------------------------------------------------------------ */     
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
       if(pwTriac0 < 0) {pwTriac0=0; HEATER = 0; LEDOFF = 1;}  // HEATER Off
       if(pwTriac1 < 0) {pwTriac1=0; HUMIDI = 0; LEDOFF = 1;}  // HUMIDIFIER Off
-      if(eep.sp.relayMode == 4){                              // импульсный режим работы насоса
+      if(eep.sp.relayMode==4){                                 // импульсный режим работы насоса
         if(pulsPeriod < 0){
           pulsPeriod = eep.sp.period;
-          pwTriac1=valRun;
-          if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
+          if(pwTriac1 && (upv.pv.fuses&0x01)==0) {pwTriac1=valRun; HUMIDI = 1; LEDOFF = 1;}  // HUMIDIFIER On
         }
       }
       if(LEDOFF) {LEDOFF = 0; ledOut(eep.sp.condition, upv.pv.fuses); SendDataTM1638(); set_Output();}
@@ -882,10 +884,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, OUT_RCK_Pin|DISPL_STB_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(DE485_GPIO_Port, DE485_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(Beeper_GPIO_Port, Beeper_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, DE485_Pin|Beeper_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : LED2_Pin */
   GPIO_InitStruct.Pin = LED2_Pin;
@@ -906,12 +905,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : OUT_RCK_Pin DISPL_STB_Pin */
-  GPIO_InitStruct.Pin = OUT_RCK_Pin|DISPL_STB_Pin;
+  /*Configure GPIO pin : OUT_RCK_Pin */
+  GPIO_InitStruct.Pin = OUT_RCK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  HAL_GPIO_Init(OUT_RCK_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DISPL_STB_Pin */
+  GPIO_InitStruct.Pin = DISPL_STB_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(DISPL_STB_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Bluetooth_STATE_Pin */
   GPIO_InitStruct.Pin = Bluetooth_STATE_Pin;
@@ -922,7 +928,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : DE485_Pin */
   GPIO_InitStruct.Pin = DE485_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(DE485_GPIO_Port, &GPIO_InitStruct);
 

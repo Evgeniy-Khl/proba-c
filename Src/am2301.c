@@ -61,7 +61,7 @@ uint8_t am2301_Read(struct rampv *ram, uint8_t biasHum){
     }
     else if(++err>3) {status=0; ram->pvRH = 150; ram->errors |= 0x02;}
   }
-  else {ram->pvRH = 200; ram->pvT[ds18b20_amount] = 1999; ram->errors |= 0x02;}
+  else {ram->pvRH = 199; ram->pvT[ds18b20_amount] = 1999; ram->errors |= 0x02;}
   return status;
 }
 //-----------------------------------------------

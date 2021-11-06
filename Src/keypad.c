@@ -132,7 +132,7 @@ HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
               switch (setup)
                {
                 case 1:  t->spT[0]=buf; break;                                                                   // У1  Уставка температуры
-                case 2:  if (HIH5030||AM2301) t->spRH[1]=buf; else t->spT[1]=buf; break;                                     // У2  Уставка влажности
+                case 2:  if (HIH5030||AM2301) t->spRH[1]=buf; else t->spT[1]=buf; break;                         // У2  Уставка влажности
                 case 3:  if (buf<1) buf=1; t->timer[0]=buf; break;                                               // У3  время отключенного состояния
                 case 4:  t->timer[1]=buf; break;                                                                 // У4  время включенного состояния (секунды)
                 case 5:  buf&=0x1F; if (buf<1) buf=1; t->alarm[0]=buf; break;                                    // У5  тревога по каналу 1
