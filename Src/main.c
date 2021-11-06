@@ -348,8 +348,9 @@ int main(void)
             if(HIH5030||AM2301){  // подключен электронный датчик влажности
               int16_t err = eep.sp.spRH[1] - upv.pv.pvRH;
               if(humCondition(err, eep.sp.alarm[1], eep.sp.extOn[1])) upv.pv.warning |= 0x02;
-              // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
-              if(eep.sp.relayMode&3) {
+              // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1] 4->по кан.[1] импульсный режим
+              if(eep.sp.relayMode&4) valRun = humidifier(err, &eep.sp);
+              else {
                 pwTriac1 = humidifier(err, &eep.sp);
                 if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
               }
@@ -357,8 +358,9 @@ int main(void)
             else if(upv.pv.pvT[1] < 850){
               int16_t err = eep.sp.spT[1] - upv.pv.pvT[1];
               if(humCondition(err, eep.sp.alarm[1], eep.sp.extOn[1])) upv.pv.warning |= 0x02;
-              // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1]
-              if(eep.sp.relayMode&3) {
+              // релейный режим работы  0-НЕТ; 1->по кан.[0] 2->по кан.[1] 3->по кан.[0]&[1] 4->по кан.[1] импульсный режим
+              if(eep.sp.relayMode&4) valRun = humidifier(err, &eep.sp);
+              else {
                 pwTriac1 = humidifier(err, &eep.sp);
                 if(pwTriac1 && (upv.pv.fuses&0x01)==0) HUMIDI = 1;  // HUMIDIFIER On
               }
